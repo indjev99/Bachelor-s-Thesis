@@ -1,0 +1,2280 @@
+\documentclass{report}
+\usepackage{geometry}
+\usepackage{graphicx}
+\usepackage{listings}
+\usepackage{textcomp}
+\usepackage{array}
+\usepackage{subfig}
+\usepackage{bold-extra}
+\usepackage{enumitem}
+\usepackage{mathtools}
+\usepackage{amsfonts}
+\usepackage{amsmath}
+\usepackage{amsthm}
+\usepackage{amssymb}
+\usepackage{setspace}
+\usepackage{hyperref}
+\usepackage{cleveref}
+\usepackage{siunitx}
+\usepackage[toc,page]{appendix}
+\usepackage[biblabel]{cite}
+\usepackage[nottoc, notlof]{tocbibind}
+
+\allowdisplaybreaks
+
+%\onehalfspacing
+%\doublespacing
+
+\newcolumntype{x}[1]{>{\centering\arraybackslash\hspace{0pt}}m{#1}}
+
+\DeclarePairedDelimiterX\setc[2]{\{}{\}}{\,#1 \;\delimsize\vert\; #2\,}
+\DeclarePairedDelimiter{\set}{\{}{\}}
+\DeclarePairedDelimiter{\abs}{\lvert}{\rvert}
+\DeclarePairedDelimiter{\seq}{<}{>}
+\DeclarePairedDelimiter{\bracks}{(}{)}
+
+\makeatletter
+\newtheorem*{rep@theorem}{\rep@title}
+\newcommand{\newreptheorem}[2]{%
+\newenvironment{rep#1}[1]{%
+ \def\rep@title{#2 \ref{##1}}%
+ \begin{rep@theorem}}%
+ {\end{rep@theorem}}}
+\makeatother
+
+\newtheorem{theorem}{Theorem}[section]
+\crefname{theorem}{Theorem}{Theorems}
+\newreptheorem{theorem}{Theorem}
+
+\newtheorem{lemma}[theorem]{Lemma}
+\crefname{lemma}{Lemma}{Lemmas}
+\newreptheorem{lemma}{Lemma}
+
+\newtheorem{corollary}[theorem]{Corollary}
+\crefname{corollary}{Corollary}{Corollaries}
+\newreptheorem{corollary}{Corollary}
+
+\newtheorem{conjecture}[theorem]{Conjecture}
+\crefname{conjecture}{Conjecture}{Conjectures}
+\newreptheorem{conjecture}{Conjecture}
+
+\theoremstyle{definition}
+\newtheorem{definition}[theorem]{Definition}
+\crefname{definition}{Definition}{Definitions}
+\newreptheorem{definition}{Definition}
+
+\lstset {
+ language=c,
+ columns=[c]fixed,
+ basicstyle=\ttfamily\small,
+ keywordstyle=\textbf,
+ upquote=true,
+ commentstyle=,
+ breaklines=true,
+ showstringspaces=false,
+ morekeywords={}
+}
+
+\newenvironment{acknowledgements}
+{\renewcommand\abstractname{Acknowledgements}\begin{abstract}} {\end{abstract}}
+
+\title{Regular Operations on Unambiguous Finite Automata: \\
+A Graph Theory Approach}
+
+\author{Emil Indzhev}
+
+\begin{document}
+
+\maketitle
+
+\begin{abstract}
+
+Various classes of automata have been a topic of research in computer science
+for decades. There has recently been interest in unambiguous finite automata
+(UFAs), a subset of nondeterministic finite automata (NFAs) and a superset of
+deterministic finite automata (DFAs). One of the main points of interest
+are the state complexities of various regular operations on UFAs and, in
+particular, the complement operation. The best-known upper bound for the
+number of states needed for complementing a UFA with $n$ states (i.e. the
+unambiguous state complexity of the complement operation) is
+$2^{0.7856 \cdot n + \log (n)}$, shown by
+\cite{UFA_UB}, who lowered it from the trivial upper bound of $2^n$. We improve
+that upper bound to $(n + 1) e^{n / e} \leq 2^{0.5308 \cdot n + \log (n + 1)}$.
+Our proof consists of showing a correspondence between a certain relevant
+property of UFAs and the sets of cliques and cocliques of undirected simple
+graphs, followed by obtaining an upper bound for the minimum of the sizes
+of those two sets. We believe that both of these steps might be of independent
+interest. Furthermore, we use this new result to improve the upper bounds for
+the unambiguous state complexities of union and square (a language concatenated
+with itself) to $m + n \cdot 2^{0.5308 \cdot m + \log (m + 1)}$ ($n$ and $m$ being the
+unambiguous state complexities of the two languages) and 
+$2^{1.5308 \cdot n + \log (n + 1)}$, respectively. We also show a non-trivial
+lower bound for the worst-case behaviour (in the number of states produced) of
+the particular complement construction used
+($2^{0.5 \cdot n + 0.5 \cdot \log (0.5 \cdot n + 0.5)}$),
+which is importantly in $2^{0.5 \cdot n + \omega (1)}$.
+Finally, we state a conjecture for a slightly tighter upper bound for the
+complement operation ($2^{0.5 \cdot n + 0.5 \cdot \log (n + 1)}$) based on
+data obtained from a brute-force search routine.
+
+\end{abstract}
+
+\begin{acknowledgements}
+
+I would like to thank my supervisor, Stefan Kiefer, for his support and
+especially for proposing this topic to me, as I wholly enjoyed working on it.
+Furthermore, I would like to thank one of my tutors, Christoph Haase, for putting
+me in touch with Stefan after I expressed interest in working on a research
+project in Models of Computation.
+
+\end{acknowledgements}
+
+\pagenumbering{roman}
+
+\tableofcontents
+\listoffigures
+
+\clearpage
+\pagenumbering{arabic}
+
+\chapter{Introduction}
+
+For many types of language acceptors (automata, grammars, Turing machines, etc.) the
+relationship between deterministic and nondeterministic versions of the machine
+is of significant interest, in particular, the classes of languages they recognize
+and their succinctness. An intermediate notion between the two is an unambiguous
+machine. Such a machine can make nondeterministic choices but it has at most one
+accepting computation on every input string.
+
+This notion has been widely studied for context-free grammars and it is well
+known that the classes of languages accepted by deterministic, unambiguous and
+nondeterministic CFGs all have strict inclusions between them, in this order.
+On the other hand, it is known that both deterministic and nondeterministic finite
+automata accept the same class of languages, regular languages. However, NFAs can be
+exponentially more succinct than DFAs. Furthermore, UFAs can be exponentially
+separated from both, as shown by \cite{UFA_exp_sep}, i.e. there are families
+of languages for which UFAs are exponentially more succinct than DFAs and other
+such families for which NFAs are exponentially more succinct than UFAs.
+This has lead to UFAs and other types of unambiguous automata being of interest
+for various other applications. One such example is \cite{UBA_markov}, who used
+unambiguous B\"uchi automata in a polynomial-time algorithm for model checking
+discrete-time Markov chains against $\omega$-regular specifications. This algorithm
+was later improved upon by \cite{UBA_markov_improv}.
+
+One question that arises naturally is about the minimum number of states needed
+to build a DFA, UFA, or NFA that accepts some regular language $L$. We call this
+quantity the deterministic, unambiguous or nondeterministic, respectively, state
+complexity of $L$. In particular, we are interested in the state complexities
+of various regular operations such as complement, union, intersection, reversal,
+star and others. Note that by the state complexity of an operation, say
+complement, we mean the worst-case state complexity of the complement of a
+language $L$ in terms of the state complexity of $L$ (usually denoted as $n$).
+All of these are known exactly for DFAs and NFAs but not for UFAs.
+\cite{UFA_UB} managed to obtain exact results for most regular
+operations except complement, union and square (i.e. a language concatenated with
+itself). Furthermore, they got upper bounds for the unambiguous state complexities
+for those three operations, by first improving the upper bound for
+complement from the trivial bound of $2^n$ to $2^{0.7856 \cdot n + \log (n)}$, and
+then using this result to show upper bounds for union
+($m + n \cdot 2^{0.7856 \cdot m + \log (m)}$, where $n$ and $m$ are the unambiguous
+state complexities of the two language) and square
+($2^{1.7856 \cdot n + \log (n)}$). On the other hand, \cite{UFA_LB} showed a
+super-polynomial lower bound for the complement of a UFA.
+
+We build upon \cite{UFA_UB}'s work, starting with the same construction for
+complement, but performing a much more detailed analysis on it. 
+Since the construction involves taking the smaller between the forward
+and the backward determinizations of the UFA, its relevant properties are
+its set of reachable sets of states (i.e. states which can be reached by the
+same word) and set of co-reachable sets of states (equivalent but in reverse).
+However, one characterization of UFAs is that no pair of reachable and
+co-reachable sets may contain more than one common state. This structure
+is what our proof is based on. We first define maximal cases for the pairs of
+sets of reachable and co-reachable sets and then show that they are equal to
+the set of cliques and the set of cocliques, respectively, of some graph
+determined by the UFA. Following that, we obtain an upper bound for the minimum
+of the sizes of these two sets of cliques and cocliques, which translates to an
+upper bound for the unambiguous state complexity of the complement operation
+($2^{0.5308 \cdot n + \log (n + 1)}$). Both of these two
+steps, and especially the second one, are likely to be of independent interest.
+Finally, we apply this new result to get tighter upper bounds for the
+unambiguous state complexities of the union
+($m + n \cdot 2^{0.5308 \cdot m + \log (m + 1)}$) and square
+($2^{1.5308 \cdot n + \log (n + 1)}$) operations, again using \cite{UFA_UB}'s
+constructions.
+
+Since the complement operation is our main object of study and the construction we
+use for it (which is due to \cite{UFA_UB}) is likely the most natural one, we also
+show a non-trivial lower bound for the maximum number of states it could produce.
+There is trivial lower bound of $2^{0.5 \cdot n}$ (where $n$ is the number of states
+of the UFA which is being complemented). We improve this to
+$2^{0.5 \cdot n + 0.5 \cdot \log (0.5 \cdot n + 0.5)}$, which is asymptotically
+higher, since it is in $2^{0.5 \cdot n + \omega (1)}$.
+
+Before undertaking all of this, several optimized brute-force searches were conducted,
+in order to form concrete expectations for the amount of improvement possible
+to the already existing upper bound. Those showed promising results and provided
+possible paths of tackling the problem. The main search routine used will be
+described in \cref{chp.computer_exploration}. Its results also suggest that
+a slightly better upper bound than the one we show is still possible
+using the same construction. We make this explicit in \cref{cnj.better_bound}.
+
+\chapter{Preliminaries}
+
+\section{Finite automata and regular languages}
+\label{sct.automata}
+
+Most of this section should be familiar to anyone who has studied
+the Models of Computation course, but there are some exceptions. Furthermore,
+for convenience we use slightly different (but equivalent) definitions of NFAs
+and DFAs, mostly following the conventions of \cite{UFA_UB}.
+
+A familiarity with strings and languages is assumed of the reader. Readers not
+familiar with these concepts should refer to \cref{app.strings_and_langauges}.
+Furthermore, since the results here are well known, we omit their proofs.
+Supplementary formal proofs of all results stated here can be found in
+\cref{app.proofs_automata}.
+
+\begin{definition} \label{def.NFA}
+A \emph{nondeterministic finite automaton} (NFA) is 5-tuple
+$M = (Q, \Sigma, \delta, I, F)$ where:
+
+\begin{itemize}
+\item $Q$ is a finite non-empty set of states
+\item $\Sigma$ is a finite input alphabet
+\item $\delta \subseteq Q \times \Sigma \times Q$ is the transition relation
+\item $I \subseteq Q$ is the set of initial states
+\item $F \subseteq Q$ is the set of final states
+\end{itemize}
+
+Each element $(p, a, q) \in \delta$ is called a \emph{transition} of $M$.
+
+Note that we allow multiple initial states and disallow
+$\epsilon$-transitions (as those can be replaced by symbol transitions
+without needing to add any extra states).
+\end{definition}
+
+For the rest of this section, whenever we introduce an NFA $M$, we implicitly
+define it as the 5-tuple $(Q, \Sigma, \delta, I, F)$. Therefore, whenever
+one of $Q$, $\Sigma$, $\delta$, $I$ or $F$ is mentioned, we are referring to
+the respective component of the NFA.
+
+\begin{definition} \label{def.NFA_size}
+The \emph{size of an NFA} $M$ is $\abs{M} = \abs{Q}$.
+\end{definition}
+
+\begin{definition} \label{def.computation}
+A \emph{computation} of an NFA $M$ on an input string $w \in \Sigma^{\ast}$
+is a sequence of states $\bar{q} \in Q^{\ast}$ such that either $w = \epsilon$
+and $\bar{q} = q$ where $q \in Q$ or $w = av$ and $\bar{q} = pq \bar{p}$ where
+$(p, a, q) \in \delta$ and $q \bar{p}$ is a computation on $v$. Furthermore,
+a computation is \emph{accepting} if its first state is initial (in $I$) and
+its last state is final (in $F$).
+
+We also write $p \xrightarrow{w}_M q$ to mean that $M$ has a computation on $w$
+whose first and last states are $p$ and $q$, respectively.
+
+Note that, since we do not allow $\epsilon$-transitions, we have no need to include
+the sequence of transitions (from $\delta$) in the definition of a computation, as
+they are unambiguously defined by the sequence of states together with the input
+string.
+\end{definition}
+
+\begin{definition} \label{def.NFA_language}
+The \emph{language accepted} by an NFA $M$, $L(M) \subseteq \Sigma^{\ast}$,
+is the set of input strings for which there exists an accepting computation.
+We say that these strings are \emph{accepted} by $M$.
+\end{definition}
+
+\begin{definition} \label{def.regular_language}
+A \emph{regular language} is a language $L$ which is accepted by some NFA $M$,
+i.e. $L = L(M)$.
+\end{definition}
+
+\begin{definition} \label{def.reverse_NFA}
+The \emph{reverse of an NFA} $M = (Q, \Sigma, \delta, I, F)$ is another
+NFA $M^R = (Q, \Sigma, \delta^R, F, I)$ where
+$\delta^R = \setc{(q, a, p)}{(p, a, q) \in \delta}$ is the \emph{reverse of the
+transition relation} of $M$.
+\end{definition}
+
+\begin{lemma} \label{lma.of_reverse_is_reverse_of}
+The language of the reverse of an NFA $M$ is equal to the reverse of the language
+of $M$. Formally, $L(M^R) = (L(M))^R$.
+\end{lemma}
+
+\begin{definition} \label{def.reachable_sets}
+The set of states \emph{reachable by $w \in \Sigma^{\ast}$} in an NFA $M$ is
+$\setc{q \in Q}{\exists p \in I \cdot p \xrightarrow{w}_M q}$.
+Similarly, the set of states \emph{co-reachable by $w$} is
+$\setc{q \in Q}{\exists p \in F \cdot q \xrightarrow{w}_M p}$.
+A set is simply \emph{reachable} if it is reachable by any word $w$ and similarly
+for \emph{co-reachable}.
+Finally, we define $\mathcal{R}_M$ to be the set of all reachable sets of $M$
+and similarly for $\mathcal{C}_M$ -- the set of all co-reachable sets of $M$.
+\end{definition}
+
+\begin{lemma} \label{lma.reverse_reachable}
+The set of reachable sets of the reverse of an NFA $M$ is equal to the set of
+co-reachable sets of $M$ and vice versa. Formally,
+$\mathcal{R}_{M^R} = \mathcal{C}_M$ and $\mathcal{C}_{M^R} = \mathcal{R}_M$.
+\end{lemma}
+
+\begin{definition} \label{def.DFA}
+A \emph{deterministic finite automaton} (DFA) is an NFA $M$ where
+$\abs{I} = 1$ and for each $p \in Q$ and $a \in \Sigma$ there is exactly
+one $q \in Q$ such that $(p, a, q) \in \delta$.
+
+Note that unlike \cite{UFA_UB} we do not allow incomplete DFAs, meaning that pairs
+of states and input symbols with no transition associated with them cannot exist.
+\end{definition}
+
+\begin{definition} \label{def.UFA}
+An \emph{unambiguous finite automaton} (UFA) is an NFA $M$ where for
+each $w \in \Sigma^{\ast}$ there is at most one accepting computation.
+\end{definition}
+
+\begin{lemma} \label{lma.UFA_characterization}
+An NFA $M$ is a UFA if and only if $\abs{S \cap T} \leq 1$ for every reachable
+set $S$ and every co-reachable set $T$.
+\end{lemma}
+
+Then a consequence of the result above and \cref{lma.reverse_reachable} is the
+following corollary:
+
+\begin{corollary} \label{crl.reverse_UFA}
+The reverse of a UFA is also a UFA.
+\end{corollary}
+
+\begin{lemma} \label{lma.DFA_reachable}
+Every reachable set of a DFA $M$ has size exactly $1$.
+\end{lemma}
+
+This lemma, together with \cref{lma.UFA_characterization},
+leads to the following corollary.
+
+\begin{corollary} \label{crl.DFA_is_UFA}
+Every DFA is also a UFA.
+\end{corollary}
+
+\begin{definition} \label{def.complement_DFA}
+\begin{sloppypar}
+The \emph{complement of a DFA} $M = (Q, \Sigma, \delta, I, F)$ is another DFA
+${\overline{M} = (Q, \Sigma, \delta, I, Q \setminus F)}$.
+\end{sloppypar}
+
+Note that $\overline{M}$ is clearly a DFA, since its transition relation and
+initial states are the same as the ones of $M$, which is a DFA.
+\end{definition}
+
+\begin{lemma} \label{lma.of_complement_is_complement}
+The language of the complement of a DFA $M$ is equal to the complement of the
+language of $M$. Formally, $L(\overline{M}) = \overline{L(M)}$.
+\end{lemma}
+
+\begin{definition} \label{def.subset_construction}
+\begin{sloppypar}
+The \emph{subset construction of an NFA} $M = (Q, \Sigma, \delta, I, F)$ is
+a DFA ${2^M = (\mathcal{R}_M, \Sigma, \delta_{2^M}, \set{I}, F_{2^M})}$ where
+$\delta_{2^M} = \setc{(S, a, \setc{q}{\exists p \in S \cdot (p, a, q) \in \delta})}
+{S \in \mathcal{R}_M \wedge a \in \Sigma}$ and
+$F_{2^M} = \setc{S}{S \in \mathcal{R}_M \wedge S \cap F \neq \emptyset}$.
+\end{sloppypar}
+
+Note that $2^M$ is clearly a DFA, since it has only one initial state and its
+transition relation has exactly one transition per pair of state and input symbol.
+We also need to show that this transition relation is valid
+(i.e. $\delta_{2^M} \subseteq \mathcal{R}_M \times \Sigma \times \mathcal{R}_M$),
+which we show in \cref{crl.subset_construction_transition_is_valid}.
+
+We write $2^M$ for the construction, since traditionally $2^Q$ is used for its
+set of states. We use only $\mathcal{R}_M$, since those are the only reachable
+states in the resulting DFA.
+\end{definition}
+
+\begin{lemma} \label{lma.subset_construction_reachable_states}
+Given an NFA $M$, the unique state reachable by $w \in \Sigma^{\ast}$ in $2^M$
+is equal to the set reachable by $w$ in $M$.
+\end{lemma}
+
+\begin{lemma} \label{lma.of_subset_is_identity}
+The language of the subset construction DFA of an NFA $M$ is equal to the
+language of $M$. Formally, $L(2^M) = L(M)$.
+\end{lemma}
+
+\begin{definition} \label{def.usc}
+The \emph{unambiguous state complexity of a regular language} $L$,
+$\mathrm{usc}(L)$, is the size of the smallest UFA $M$ which accepts $L$, i.e.
+$L(M) = L$.
+\end{definition}
+
+\section{Graphs and cliques}
+
+\begin{definition} \label{def.graph}
+An \emph{(undirected simple) graph} is a pair $G = (V, E)$ where $V$ is the finite
+set of nodes and $E$ is the finite set of edges. Here, an \emph{edge} is a set of
+two distinct nodes. We define $\mathit{Poss}_V$ to be the \emph{set of all possible edges},
+i.e. $\mathit{Poss}_V = \setc{(u, v)}{u, v \in V \wedge u \neq v}$. Thus,
+$E \subseteq \mathit{Poss}_V$.
+\end{definition}
+
+\begin{definition} \label{def.clique}
+A \emph{clique (complete subgraph)} of a graph $G = (V, E)$ is a set
+$S \subseteq V$ such that there is an edge between every pair of distinct nodes
+in $S$. Formally, $\forall u, v \in S \cdot (u \neq v \rightarrow \set{u, v} \in E)$.
+Additionally, a clique $S$ is said to be a \emph{$k$-clique} if $\abs{S} = k$.
+Similarly, a \emph{coclique} (or \emph{independent set}) of $G$ is a set
+$T \subseteq V$ such that there is no edge between any pair of distinct nodes in
+$T$. Formally,
+$\forall u, v \in S \cdot (u \neq v \rightarrow \set{u, v} \notin E)$.
+Finally, we define $\mathit{Cliques}(G)$ to be the set of all cliques of $G$ and
+$\mathit{Cocliques}(G)$ to be the set of all cocliques of $G$.
+
+Note that we do not require cliques to be maximal.
+\end{definition}
+
+\begin{definition} \label{def.cograph}
+The \emph{cograph} of a graph $G = (V, E)$ is a graph
+$\overline{G} = (V, \mathit{Poss}_V \setminus E)$.
+\end{definition}
+
+\begin{lemma} \label{lma.cliques_of_cograph}
+The set of cocliques of a graph $G$ is equal to the set of cliques of its cograph
+and vice versa. Formally, $\mathit{Cocliques}(G) = \mathit{Cliques}(\overline{G})$ and
+$\mathit{Cliques}(G) = \mathit{Cocliques}(\overline{G})$.
+\end{lemma}
+
+\begin{proof}
+We prove the first equality by considering each possible element $S \subseteq V$ of
+the two sets:
+\begin{align*}
+& S \in \mathit{Cocliques}(G) \\
+\Leftrightarrow \ &
+\forall u, v \in S \cdot (u \neq v \rightarrow \set{u, v} \notin E)
+& \text{\cref{def.clique}} \\
+\Leftrightarrow \ &
+\forall u, v \in S \cdot (u \neq v \rightarrow \set{u, v} \in \mathit{Poss}_V \setminus E)
+& \text{Since } E \subseteq \mathit{Poss}_V \\
+\Leftrightarrow \ &
+S \in \mathit{Cliques}(\overline{G})
+& \text{\cref{def.clique} and \cref{def.cograph}} \\
+& \text{Therefore } \mathit{Cocliques}(G) = \mathit{Cliques}(\overline{G})
+\end{align*}
+The proof for the second equality is analogous.
+\end{proof}
+
+\begin{lemma} \label{lma.num_cliques_of_size}
+A graph $G$ with $n$ nodes and a largest clique of size $\omega$ can have 
+no more than $\binom{\omega}{k} \frac{n^k}{\omega^k}$ $k$-cliques.
+\end{lemma}
+
+\begin{proof}
+Corollary 1. in \cite{cliques}.
+\end{proof}
+
+Note that the above bound is tight (for all $k$) on a Tur\'an graph $T(n, \omega)$
+when $n$ is divisible by $\omega$. Such a graph has $n$ nodes split into $\omega$
+equally sized ``components''. It has an edge between a pair of vertices if and only
+if they are in separate components. An example of such a graph, $T(6, 3)$, is shown
+in \cref{fig.T63}.
+
+\begin{figure}[h]
+\centering
+\includegraphics[width=5cm]{T63.png}
+\caption{A Tur\'an graph $T(6, 3)$}
+\label{fig.T63}
+\end{figure}
+
+\chapter{Upper bound proofs}
+
+\section{Complement}
+
+This section contains our main original contributions, with only
+\cref{lma.UFA_complement_construction} being a reproduction of a result
+by \cite{UFA_UB}.
+
+We fix, for the remainder of this section, a set $Q$ with $\abs{Q} = n$.
+
+\begin{lemma} \label{lma.UFA_complement_construction}
+\begin{sloppypar}
+Let $L \subseteq \Sigma^{\ast}$ be a regular language with accepted by a UFA $M$.
+Then ${\mathrm{usc}(\overline{L}) \leq
+\min\set{\abs{\mathcal{R}_M}, \abs{\mathcal{C}_M}}}$.
+\end{sloppypar}
+\end{lemma}
+
+\begin{proof}
+Consider the following two UFAs:
+$M_1 = \overline{2^M}$ and $M_2 = \overline{2^{M^R}}^R$.
+First, note that these are valid complement constructions (they are performed on
+DFAs) by \cref{def.subset_construction}. Furthermore, the resulting NFAs
+are indeed UFAs by \cref{def.complement_DFA}, \cref{crl.DFA_is_UFA} and
+\cref{crl.reverse_UFA}. Finally, by \cref{lma.of_reverse_is_reverse_of},
+\cref{lma.of_subset_is_identity} and \cref{lma.of_complement_is_complement},
+$L(M_1) = L(M_2) = \overline{L(M)} = \overline{L}$.
+Therefore, these are both constructions for UFAs whose language is $\overline{L}$
+and thus $\mathrm{usc}(\overline{L}) \leq \min\set{\abs{M_1}, \abs{M_2}}$ by
+\cref{def.usc}. However, by construction, $\mathcal{R}_M$ is the set of states of
+$M_1$ and similarly, by \cref{lma.reverse_reachable}, $\mathcal{C}_M$ is the set
+of states of $M_2$. This proves the lemma, $\mathrm{usc}(\overline{L}) \leq
+\min\set{\abs{\mathcal{R}_M}, \abs{\mathcal{C}_M}}$, from \cref{def.NFA_size}.
+\end{proof}
+
+\begin{definition} \label{def.comp}
+\begin{sloppypar}
+We define $\mathit{Comp}$ to be the set of pairs of sets of reachable and
+co-reachable sets that a UFA with states $Q$ could have.
+We call such pairs \emph{compatible}. Formally,
+${\mathit{Comp} = \setc{(\mathcal{R}, \mathcal{C})}{\mathcal{R}, \mathcal{C} \subseteq 2^Q
+\wedge \forall S \in \mathcal{R} \cdot \forall T \in \mathcal{C} \cdot
+\abs{S \cap T} \leq 1}}$.
+\end{sloppypar}
+\end{definition}
+
+\begin{definition} \label{def.max_comp}
+We define $\mathit{MaxComp}$ to be the set of \emph{maximal} elements of $\mathit{Comp}$ where a
+pair $(\mathcal{R}, \mathcal{C})$ is maximal if, for every set $S \subseteq Q$
+not in $\mathcal{R}$, adding it to $\mathcal{R}$ would make the pair
+incompatible, and similarly for $\mathcal{C}$. Formally:
+\begin{align*}
+\mathit{MaxComp} = \{ (\mathcal{R}, \mathcal{C}) \ \vert \
+& (\mathcal{R}, \mathcal{C}) \in \mathit{Comp} \\
+& \wedge \forall S \in 2^Q \setminus \mathcal{R} \cdot
+(\mathcal{R} \cup \set{S}, \mathcal{C}) \notin \mathit{Comp} \\
+& \wedge \forall T \in 2^Q \setminus \mathcal{C} \cdot
+(\mathcal{T}, \mathcal{C} \cup \set{T}) \notin \mathit{Comp} \}
+\end{align*}
+\end{definition}
+
+\begin{lemma} \label{lma.comp_pointwise_subset}
+Every compatible pair is a pointwise subset of a maximal compatible pair.
+Formally, $\forall (\mathcal{R}, \mathcal{C}) \in \mathit{Comp} \cdot \exists
+(\mathcal{R}', \mathcal{C}') \in \mathit{MaxComp} \cdot (\mathcal{R} \subseteq \mathcal{R}'
+\wedge \mathcal{C} \subseteq \mathcal{C}')$.
+\end{lemma}
+
+\begin{proof}
+We prove the lemma by induction in decreasing order of the pointwise subset
+relation on $\mathit{Comp}$:
+\begin{align*}
+& \text{Let } (\mathcal{R}, \mathcal{C}) \in \mathit{Comp} \text{:} \\
+\\
+& \text{Case } \neg \exists (\mathcal{R}', \mathcal{C}') \in
+\mathit{Comp} \setminus \set{(\mathcal{R}, \mathcal{C})} \cdot
+(\mathcal{R} \subseteq \mathcal{R}' \wedge \mathcal{C} \subseteq \mathcal{C}')
+\text{:} \\
+\Rightarrow \ & \neg \exists S \in 2^Q \setminus \mathcal{R} \cdot
+(\mathcal{R} \cup \set{S}, \mathcal{C}) \in \mathit{Comp}
+& \text{Otherwise } \mathcal{R}' = \mathcal{R} \cup \set{S}
+\text{ and } \mathcal{C}' = \mathcal{C} \\
+& \wedge \neg \exists T \in 2^Q \setminus \mathcal{C} \cdot
+(\mathcal{T}, \mathcal{C} \cup \set{T}) \in \mathit{Comp}
+& \text{Analogous} \\
+\Rightarrow \ & (\mathcal{R}, \mathcal{C}) \in \mathit{MaxComp}
+& \text{\cref{def.max_comp}} \\
+\\
+& \text{Case } \exists (\mathcal{R}', \mathcal{C}') \in
+\mathit{Comp} \setminus \set{(\mathcal{R}, \mathcal{C})} \cdot
+(\mathcal{R} \subseteq \mathcal{R}' \wedge \mathcal{C} \subseteq \mathcal{C}')
+\text{:} \\
+& \exists (\mathcal{R}'', \mathcal{C}'') \in \mathit{MaxComp} \cdot
+(\mathcal{R}' \subseteq \mathcal{R}'' \wedge \mathcal{C}' \subseteq \mathcal{C}'')
+& \text{Inductive hypothesis} \\
+\Rightarrow \ &
+\mathcal{R} \subseteq \mathcal{R}'' \wedge \mathcal{C} \subseteq \mathcal{C}'
+\end{align*}
+\end{proof}
+
+\begin{lemma} \label{lma.max_comp_alternative}
+If $(\mathcal{R}, \mathcal{C}) \in \mathit{MaxComp}$, then
+$\mathcal{R} = \setc{S}{S \subseteq Q \wedge \forall T \in \mathcal{C} \cdot
+\abs{S \cap T} \leq 1}$
+and
+$\mathcal{C} = \setc{T}{T \subseteq Q \wedge \forall S \in \mathcal{R} \cdot
+\abs{S \cap T} \leq 1}$.
+\end{lemma}
+
+Intuitively, this lemma says that for a maximal compatible pair
+$(\mathcal{R}, \mathcal{C})$, $\mathcal{R}$ is fully determined by
+$\mathcal{C}$ and vice versa. Furthermore, $\mathcal{R}$ includes precisely those
+sets that would not make it incompatible with $\mathcal{C}$ (and analogously in the
+other direction).
+
+\begin{proof}
+We prove the first equality by double inclusion:
+\begin{align*}
+& \text{Let } \mathcal{R}' = \setc{S}{S \subseteq Q \wedge
+\forall T \in \mathcal{C} \cdot \abs{S \cap T} \leq 1} \text{:} \\
+\\
+& \text{But } \forall S \in \mathcal{R} \cdot (S \subseteq Q \wedge
+\forall T \in \mathcal{C} \cdot \abs{S \cap T} \leq 1)
+& \text{\cref{def.comp}} \\
+\Rightarrow \ & \mathcal{R} \subseteq \mathcal{R}' \\
+\\
+& \text{For a contradiction, suppose that } \mathcal{R}' \nsubseteq \mathcal{R} \\
+\Rightarrow \ & \exists S \in \mathcal{R}' \cdot S \notin \mathcal{R} \\
+\Rightarrow \ & \forall S' \in \mathcal{R} \cup \set{S} \cdot
+\forall T \in \mathcal{C} \cdot \abs{S' \cap T} \leq 1
+& \text{\cref{def.comp} and definition of } \mathcal{R}' \\
+\Rightarrow \ & (\mathcal{R} \cup \set{S}, \mathcal{C}) \in \mathit{Comp}
+& \text{\cref{def.comp}} \\
+\Rightarrow \ & (\mathcal{R}, \mathcal{C}) \notin \mathit{MaxComp}
+& \text{\cref{def.max_comp}} \\
+& \text{Therefore } \mathcal{R}' \subseteq \mathcal{R}
+& \text{By contradiction}
+\end{align*}
+The proof of the second equality is analogous.
+\end{proof}
+
+Then the following corollary is a consequence of the above lemma:
+
+\begin{corollary} \label{crl.max_comp_is_subset_closed}
+If $(\mathcal{R}, \mathcal{C})$ is a maximal compatible pair, then both $\mathcal{R}$
+and $\mathcal{C}$ are subset closed. Formally, $\forall S \in \mathcal{R} \cdot
+\forall S' \subseteq S \cdot S' \in \mathcal{R}$ and similarly for $\mathcal{C}$.
+\end{corollary}
+
+From now on, we consider graphs on $Q$. For brevity, we write just $\mathit{Poss}$ to refer
+to $\mathit{Poss}_Q$ (the set of all possible edges of such graphs). Thus, $2^{\mathit{Poss}}$ is
+isomorphic to the set of all such graphs.
+
+\begin{lemma} \label{lma.max_comp_has_edges}
+If $(\mathcal{R}, \mathcal{C}) \in \mathit{MaxComp}$, then every possible edge $e \in \mathit{Poss}$
+is either in $\mathcal{R}$ or in $\mathcal{C}$. Formally,
+$\forall e \in \mathit{Poss} \cdot (e \in \mathcal{R} \leftrightarrow e \notin \mathcal{C})$.
+\end{lemma}
+
+\begin{proof}
+The $e \in \mathcal{R} \rightarrow e \notin \mathcal{C}$ direction is trivial,
+since $\abs{e \cap e} = \abs{e} = 2 > 1$, and thus
+$e \in \mathcal{R} \wedge e \in \mathcal{C}$ is a contradiction
+(from \cref{def.comp}).
+
+For the opposite direction:
+\begin{align*}
+& \text{Suppose that } e \notin \mathcal{C} \\
+\Rightarrow \ & \forall T \in \mathcal{C} \cdot e \nsubseteq T
+& \text{\cref{crl.max_comp_is_subset_closed}} \\
+\Rightarrow \ & \forall T \in \mathcal{C} \cdot T \cap e \subset e \\
+\Rightarrow \ & \forall T \in \mathcal{C} \cdot \abs{T \cap e} \leq \abs{e} - 1 = 1 \\
+\Rightarrow \ & e \in \mathcal{R}
+& \text{\cref{lma.max_comp_alternative}}
+\end{align*}
+\end{proof}
+
+Then the following corollary is a consequence of the above lemma:
+
+\begin{corollary} \label{crl.max_comp_C_edges}
+If $(\mathcal{R}, \mathcal{C}) \in \mathit{MaxComp}$, then
+$\mathcal{C} \cap \mathit{Poss} = \mathit{Poss} \setminus (\mathcal{R} \cap \mathit{Poss})$.
+\end{corollary}
+
+\begin{lemma} \label{lma.max_comp_graph_bijection}
+There is a bijection $f$ from $\mathit{MaxComp}$ to $2^{\mathit{Poss}}$, defined as
+$f(\mathcal{R}, \mathcal{C}) = \mathcal{R} \cap \mathit{Poss}$ with an inverse
+$f^{-1}(E) = (\mathcal{R}', \mathcal{C}')$ where
+$\mathcal{R}' = \setc{S}{S \subseteq Q \wedge \forall e \in \mathit{Poss} \setminus E \cdot
+\abs{S \cap e} \leq 1}$
+and
+$\mathcal{C}' = \setc{T}{T \subseteq Q \wedge \forall e \in E \cdot
+\abs{e \cap T} \leq 1}$.
+\end{lemma}
+
+\begin{proof}
+We need to show that $f^{-1}$ is indeed the inverse of $f$.
+First we show that it is its left inverse, i.e. that
+$\mathcal{R}' = \mathcal{R}$ and $\mathcal{C}' \mathcal{C}$ where
+$(\mathcal{R}', \mathcal{C}') = f^{-1}(f(\mathcal{R}, \mathcal{C}))
+= f^{-1}(\mathcal{R} \cap \mathit{Poss})$.
+We prove the second equality (the one for $\mathcal{C}$) by double inclusion:
+\begin{align*}
+& \text{Let } T \subseteq Q \text{:} \\
+\\
+& \text{First, suppose that } T \in \mathcal{C} \\
+\Rightarrow \ & \forall S \in \mathcal{R} \cdot \abs{S \cap T} \leq 1
+& \text{\cref{lma.max_comp_alternative}} \\
+\Rightarrow \ & \forall S \in \mathcal{R} \cap \mathit{Poss} \cdot \abs{S \cap T} \leq 1
+& \text{Since } S \in \mathcal{R} \subseteq S \\
+\Rightarrow \ & T \in \mathcal{C}' \\
+& \text{Therefore } \mathcal{C} \subseteq \mathcal{C}' \\
+\\
+& \text{Second, suppose that } T \notin \mathcal{C} \\
+\Rightarrow \ & \neg \forall S \in \mathcal{R} \cdot \abs{S \cap T} \leq 1
+& \text{\cref{lma.max_comp_alternative}} \\
+\Rightarrow \ & \exists S \in \mathcal{R} \cdot \abs{S \cap T} \geq 2 \\
+& \text{Consider an arbitrary } e \subseteq S \cap T \text{ such that }
+\abs{e} = 2 \\
+\Rightarrow \ & e \in \mathit{Poss}
+& \text{\cref{def.graph} since } \abs{e} = 2 \wedge e \subseteq Q \\
+& \wedge e \in \mathcal{R}
+& \text{\cref{crl.max_comp_is_subset_closed} since }
+e \subseteq S \cap T \subseteq S \in \mathcal{R} \\
+\Rightarrow \ & e \in \mathcal{R} \cap \mathit{Poss} \\
+& \wedge \abs{e \cap T} = 2
+& \text{Since } e \subseteq S \cap T \subseteq T \text{ and thus } e \cap T = e \\
+\Rightarrow \ & \exists e \in \mathcal{R} \cap \mathit{Poss} \cdot \abs{e \cap T} \geq 2 \\
+\Rightarrow \ & \neg \forall e \in \mathcal{R} \cap \mathit{Poss} \cdot \abs{e \cap T} < 1 \\
+\Rightarrow \ & T \notin \mathcal{C}' \\
+& \text{Therefore } \mathcal{C}' \subseteq \mathcal{C}
+\end{align*}
+The proof for the first equality is analogous, since
+$\mathit{Poss} \setminus (\mathcal{R} \cap \mathit{Poss}) = \mathcal{C} \cap \mathit{Poss}$
+by \cref{crl.max_comp_C_edges}.
+
+Lastly, we need to show that $f^{-1}$ is also the right inverse of $f$,
+i.e. that $f(f^{-1}(E)) = E$:
+\begin{align*}
+& f(f^{-1}(E)) \\
+= \ & \setc{S}{S \subseteq Q \wedge \forall e \in \mathit{Poss} \setminus E \cdot
+\abs{S \cap e} \leq 1} \cap \mathit{Poss} \\
+= \ & \setc{e}{e \in \mathit{Poss} \wedge \forall e' \in \mathit{Poss} \setminus E \cdot
+\abs{e \cap e'} \leq 1}
+& \text{Since } \mathit{Poss} \subseteq Q \\
+= \ & \setc{e}{e \in \mathit{Poss} \wedge \forall e' \in \mathit{Poss} \setminus E \cdot
+e \neq e'}
+& \text{Since } \abs{e} = \abs{e'} = 2 \text{ by \cref{def.graph}} \\
+= \ & \setc{e}{e \in \mathit{Poss} \wedge e \notin \mathit{Poss} \setminus E} \\
+= \ & \setc{e}{e \in \mathit{Poss} \cap E} \\
+= \ & \setc{e}{e \in E}
+& \text{Since } E \subseteq \mathit{Poss} \\
+= \ & E
+\end{align*}
+\end{proof}
+
+\begin{lemma} \label{lma.max_comp_bijection_inverse_cliques}
+For any $E \subseteq \mathit{Poss}$, $f^{-1}(E) = (\mathit{Cliques}(Q, E), \mathit{Cocliques}(Q, E))$.
+\end{lemma}
+
+\begin{proof}
+We prove that $\mathcal{R}' = \setc{S}{S \subseteq Q \wedge
+\forall e \in \mathit{Poss} \setminus E \cdot \abs{S \cap e} \leq 1} =
+\mathit{Cliques}(Q, E)$ by considering each possible element $S \subseteq Q$ of the two sets:
+\begin{align*}
+& S \in \mathcal{R}' \\
+\Leftrightarrow \ & \forall e \in \mathit{Poss} \setminus E \cdot \abs{S \cap e} \leq 1
+& \text{Definition of } f^{-1} \text{ in \cref{lma.max_comp_graph_bijection}} \\
+\Leftrightarrow \ & \forall \set{u, v} \in \mathit{Poss} \setminus E \cdot
+(u \notin S \vee v \notin S) \\
+\Leftrightarrow \ & \forall \set{u, v} \in \mathit{Poss} \cdot
+(\set{u, v} \notin E \rightarrow (u \notin S \vee v \notin S)) \\
+\Leftrightarrow \ & \forall \set{u, v} \in \mathit{Poss} \cdot
+((u \in S \wedge v \in S) \rightarrow \set{u, v} \in E) \\
+\Leftrightarrow \ & \forall u, v \in Q \cdot
+(u \neq v \rightarrow ((u \in S \wedge v \in S) \rightarrow \set{u, v} \in E))
+& \text{\cref{def.graph}} \\
+\Leftrightarrow \ & \forall u, v \in Q \cdot
+((u \in S \wedge v \in S) \rightarrow (u \neq v \rightarrow \set{u, v} \in E)) \\
+\Leftrightarrow \ & \forall u, v \in S \cdot
+(u \neq v \rightarrow \set{u, v} \in E)
+& \text{Since } S \subseteq Q \\
+\Leftrightarrow \ & S \in \mathit{Cliques}(Q, E)
+& \text{\cref{def.clique}} \\
+& \text{Therefore } \mathcal{R}' = \mathit{Cliques}(Q, E)
+\end{align*}
+The proof for the second part is analogous by considering the cograph
+following \cref{lma.cliques_of_cograph} and \cref{crl.max_comp_C_edges}.
+\end{proof}
+
+\begin{lemma} \label{lma.num_cliques}
+A graph $G$ with $n$ nodes and no cliques larger $\omega$ can have 
+no more than $(\frac{n}{\omega} + 1)^\omega$ cliques. Formally,
+$\abs{\mathit{Cliques}(G)} \leq \bracks*{\frac{n}{\omega} + 1}^{\omega}$.
+\end{lemma}
+
+\begin{proof}
+First we show that, if $G$ has a largest clique of size $\omega$, then it has at most
+$c(\omega)$ cliques where $c(x) = \bracks*{\frac{n}{x} + 1}^x$. Let $Cliques_k(G)$ be
+the set of $k$-cliques of $G$. Then:
+\begin{align*}
+& \abs{\mathit{Cliques}(G)} \\
+= \ & \abs{\bigcup_{k = 0}^\omega Cliques_k(G)}
+& \text{\cref{def.clique} since the graph has no cliques larger than } \omega \\
+= \ & \sum_{k = 0}^\omega \abs{Cliques_k(G)}
+& \text{Since } Cliques_{k_1}(G) \cap Cliques_{k_2}(G) = \emptyset
+\text{ for } k_1 \neq k_2 \\
+\leq \ & \sum_{k = 0}^\omega \binom{\omega}{k} \frac{n^k}{\omega^k}
+& \text{\cref{lma.num_cliques_of_size}} \\
+= \ & \sum_{k = 0}^\omega \binom{\omega}{k}
+\bracks*{\frac{n}{\omega}}^k 1^{\omega - k} \\
+= \ & \bracks*{\frac{n}{\omega} + 1}^{\omega}
+& \text{Binomial theorem}
+\end{align*}
+
+Now we need to show that the statement holds for any graph $G$ with no cliques
+larger than $\omega$, i.e. with a largest clique of size $\omega' \leq \omega$.
+To that end, we prove that $c(x)$ is non-decreasing in $x$ for $1 \leq x \leq n$,
+from which $c(\omega') \leq c(\omega)$ follows:
+\begin{align*}
+& \frac{d c}{d x} = \bracks*{\frac{n}{x} + 1}^x
+\bracks*{\ln \bracks*{\frac{n}{x} + 1} - \frac{n}{n + x}} \\
+& \text{Now consider the two parts of the product:} \\
+& \bracks*{\frac{n}{x} + 1}^x \geq 0
+& \text{Since } n, x \geq 1 \\
+& \ln \bracks*{\frac{n}{x} + 1} - \frac{n}{n + x} \\
+\geq \ & \frac{\frac{n}{x}}{1 + \frac{n}{x}} - \frac{n}{n + x}
+& \text{Since } \ln (1 + x) \geq \frac{x}{1 + x} \text{\footnotemark} \\
+= \ & \frac{n}{x + n} - \frac{n}{n - x} \\
+= \ & 0 \\
+& \text{Therefore } \frac{d c}{d x} \geq 0
+\end{align*}
+
+\footnotetext{$$\ln (1 + x)
+= \int_1^{1 + x} \frac{1}{y} \,dy
+\geq x \bracks*{\min_{1 \leq y \leq 1 + x} \frac{1}{y}}
+= \frac{x}{1 + x} \text{ when } x \geq 0$$}
+
+\end{proof}
+
+Note that the only $\leq$ in the above proof is tight (for all $k$ at once)
+when $G$ is a Tur\'an graph $T(n, \omega)$ and $n$ is divisible by $\omega$.
+Thus, the whole bound is tight for such graphs.
+
+\begin{lemma} \label{lma.min_num_cliques_cocliques}
+For a graph $G = (V, E)$ with $n$ nodes, the following bound on its
+cliques and cocliques holds:
+$\min\set{\abs{\mathit{Cliques}(G)}, \abs{\mathit{Cocliques}(G)}} \leq (n + 1) e^{n / e}$.
+\end{lemma}
+
+\begin{proof}
+Let $X$ be the largest clique (or one of the largest cliques) of $G$ and,
+similarly, $Y$ be a largest coclique of $G$.
+Also, let $\abs{X} = h$ and $\abs{Y} = k$.
+
+We start by getting a bound on $\abs{\mathit{Cliques}(G)}$.
+Note that, since $Y$ is a coclique, $G$ has no edges between any pair of
+nodes in $Y$. Thus, no clique of $G$ can contain more than one node from $Y$.
+Therefore, for every $S \in \mathit{Cliques}(G)$, either $S \subseteq V \setminus Y$
+or $S = S' \cup \set{y}$ where $S' \subseteq V \setminus Y$ and $y \in Y$.
+So, we define the following subgraph of $G$:
+$G \setminus Y = (V \setminus Y, E \cap \mathit{Poss}_{V \setminus Y})$.
+Then it follows that $\mathit{Cliques}(G) \subseteq \mathit{Cliques}(G \setminus Y) \cup
+\setc{S' \cup \set{y}}{S' \in \mathit{Cliques}(G \setminus Y) \wedge y \in Y}$
+and thus $\abs{\mathit{Cliques}(G)} \leq (k + 1) \abs{\mathit{Cliques}(G \setminus Y)}
+\leq (n + 1) \abs{\mathit{Cliques}(G \setminus Y)}$.
+However, no clique of $G \setminus Y$ can have size greater than $h$,
+since $X$ is a largest clique of $G$. Therefore, by \cref{lma.num_cliques}
+$\abs{\mathit{Cliques}(G \setminus Y)} \leq (\frac{n - k}{h} + 1)^h$
+and thus
+$\abs{\mathit{Cliques}(G)} \leq (n + 1) (\frac{n - k}{h} + 1)^h$.
+
+Analogously, by \cref{lma.cliques_of_cograph},
+$\abs{\mathit{Cocliques}(G)} \leq (n + 1) (\frac{n - h}{k} + 1)^k$.
+Therefore, if we define $g(a, b) = (\frac{n - b}{a} + 1)^a$ for
+$1 \leq a, b \leq n$,
+we can obtain the following bound on the quantity of interest:
+$\min\set{\abs{\mathit{Cliques}(G)}, \abs{\mathit{Cocliques}(G)}} \leq (n + 1)
+\min\set{g(h, k), g(k, h)}$.
+
+Trivially, $g$ is decreasing in $b$ (since $a \geq 1$). Therefore, if $h \leq k$,
+then $g(h, k) \leq g(h, h)$, and, if $k \leq h$, then $g(k, h) \leq g(k, k)$.
+Thus, $\min\set{g(h, k), g(k, h)} \leq \max_{1 \leq x \leq n} g(x, x)$.
+Finally, we find $\max_{1 \leq x \leq n} g(x, x)$ by examining the critical
+points of $g(x, x) = (\frac{n - x}{x} + 1)^x = (\frac{n}{x})^x$:
+\begin{align*}
+& \text{Case } x = 1 \text{:} \\
+& g(1, 1) = (\frac{n}{1})^1 = n \\
+\\
+& \text{Case } x = n \text{:} \\
+& g(n, n) = (\frac{n}{n})^n = 1 \\
+\\
+& \text{Case } \frac{d g(x, x)}{d x} = 0 \text{:} \\
+& \frac{d g(x, x)}{d x} = \bracks*{\ln \frac{n}{x} - 1}
+\bracks*{\frac{n}{x}}^x = 0 \\
+\Rightarrow \ & \ln \frac{n}{x} = 1
+& \text{Since } \bracks*{\frac{n}{x}}^x > 0 \\
+\Rightarrow \ & x = \frac{n}{e} \\
+\Rightarrow \ & g(x, x) = \bracks*{\frac{n}{\frac{n}{e}}}^{n / e} = e^{n / e} \\
+\\
+& \text{Therefore } \max_{1 \leq x \leq n} g(x, x) = e^{n / e}
+& \text{Since } e^{n / e} < n \text{ has no solutions \footnotemark}
+\end{align*}
+Finally, we obtain the desired upper bound:
+$\min\set{\abs{\mathit{Cliques}(G)}, \abs{\mathit{Cocliques}(G)}} \leq (n + 1) e^{n / e}$.
+
+\footnotetext{Clearly, $e^{n / e}$ grows faster than $n$, so we only need to verify
+the claim for small values. Doing that, we find that the two functions touch at a
+single point between $2$ and $3$, but $n$ is never larger than $e^{n / e}$.}
+\end{proof}
+
+\begin{theorem} \label{thm.complement_usc}
+If $L$ is a regular language over $\Sigma$ with $\mathrm{usc}(L) = n$, then
+$\mathrm{usc}(\overline{L}) \leq (n + 1) e^{n / e}$ and thus 
+$\mathrm{usc}(\overline{L}) \leq 2^{0.5308 \cdot n + \log (n + 1)}$.
+\end{theorem}
+
+\begin{proof}
+Let $M$ be a UFA with states $Q$ that accepts $L$. Then:
+\begin{align*}
+& \forall S \in \mathcal{R}_M \cdot \forall T \in \mathcal{C}_M \cdot
+\abs{S \cap T} \leq 1
+& \text{\cref{lma.UFA_characterization}} \\
+\Rightarrow \ & (\mathcal{R}_M, \mathcal{C}_M) \in \mathit{Comp}
+& \text{\cref{def.comp}} \\
+\Rightarrow \ & \exists (\mathcal{R}', \mathcal{C}') \in \mathit{MaxComp} \cdot
+(\mathcal{R}_M \subseteq \mathcal{R}' \wedge \mathcal{C}_M \subseteq \mathcal{C}')
+& \text{\cref{lma.comp_pointwise_subset}} \\
+\\
+& \mathrm{usc}(\overline{L}) \\
+\leq \ & \min\set{\abs{\mathcal{R}_M}, \abs{\mathcal{C}_M}}
+& \text{\cref{lma.UFA_complement_construction}} \\
+\leq \ & \min\set{\abs{\mathcal{R}'}, \abs{\mathcal{C}'}}
+& \text{Since } \abs{\mathcal{R}_M} \leq \abs{\mathcal{R}'} \wedge
+\abs{\mathcal{C}_M} \leq \abs{\mathcal{C}'} \\
+= \ & \min\set{\abs{\mathcal{R}''}, \abs{\mathcal{C}''}}
+\text{ where } (\mathcal{R}'', \mathcal{C}'') =
+f^{-1} (f(\mathcal{R}', \mathcal{C}'))
+& \text{\cref{lma.max_comp_graph_bijection}} \\
+= \ & \min\set{\abs{\mathit{Cliques}(Q, f(R', C'))}, \abs{\mathit{Cocliques}(Q, f(R', C'))}}
+& \text{\cref{lma.max_comp_bijection_inverse_cliques}} \\
+\leq \ & (n + 1) e^{n / e}
+& \text{\cref{lma.min_num_cliques_cocliques}} \\
+\leq \ & 2^{0.5308 \cdot n + \log (n + 1)}
+\end{align*}
+\end{proof}
+
+Note that any compatible pair (and thus any maximal compatible pair) is a possible
+pair of sets of reachable and co-reachable sets that a UFA $M$ could have. This is
+because, for example, we could use one symbol of the alphabet per reachable set and
+one symbol per co-reachable set (though there are likely more succinct
+constructions). Therefore, the only two places where we lose tightness of the bound
+(excluding the final numerical approximation) are
+the initial construction in \cref{lma.UFA_complement_construction} and the bound
+on the cliques and cocliques in \cref{lma.min_num_cliques_cocliques}. However,
+it is easy to see that on some (not necessarily minimal for their language) automata
+this construction produces results with
+$2^{0.5 n}$ states, so not much further improvement is possible using this approach.
+One such case is when $Q = Q_1 \cup Q_2$ with $\abs{Q_1} = \abs{Q_2} = n / 2$,
+$\mathcal{R}_M = 2^{Q_1}$ and $\mathcal{C}_M = 2^{Q_2}$.
+
+\section{Other regular operations}
+
+Most of the results in this section are reproductions of \cite{UFA_UB}'s results,
+though with more details in the proofs and with us plugging in our improved bound
+from \cref{thm.complement_usc}, in order to improve the final bounds.
+
+\begin{theorem} \label{thm.intersection_usc}
+If $K$ and $L$ are regular languages over $\Sigma$ with $\mathrm{usc}(K) = m$ and
+$\mathrm{usc}(L) = n$, then $\mathrm{usc}(K \cap L) \leq mn$.
+\end{theorem}
+
+\begin{proof}
+Let $M = (Q_M, \Sigma, \delta_M, I_M, F_M)$ be a UFA with $m$ states that accepts
+$K$ and let $N = (Q_N, \Sigma, \delta_N, I_N, F_N)$ be a UFA $n$ states that
+accepts $L$. Now we construct a UFA $M \cap N$, such that $L(M \cap N) = K \cap L$.
+Define $M \cap N = (Q_M \times Q_N, \Sigma, \delta_{M \cap N}, I_M \times I_N,
+F_M \times F_N)$ where $\delta_{M \cap N} = \setc{((p_M, p_N), a, (q_M, q_N))}
+{(p_M, a, q_M) \in \delta_M \wedge (p_N, a, q_N) \in \delta_N}$.
+Clearly, $M \cap N$ is an NFA. First, we prove that it accepts the correct language
+by considering each possible element $w \in \Sigma^{\ast}$ of the two sets $K \cap L$
+and $L(M \cap N)$:
+\begin{align*}
+& w \in K \cap L = L(M) \cap L(N) \\
+\Leftrightarrow \ & w \in L(M) \wedge w \in L(N) \\
+\Leftrightarrow \ & \text{There are accepting computations on } w
+\text{ in } M \text{ and } N 
+& \text{\cref{def.NFA_language}} \\
+\Leftrightarrow \ & \text{There are computations on } w \text{:} \\
+& q_M^0 q_M^1 \cdots q_M^{\abs{w}} \in Q_M^{\ast} \text{ in } M \text{ and }
+q_N^0 q_N^1 \cdots q_N^{\abs{w}} \in Q_N^{\ast} \text{ in } N \\
+& \text{where } q_M^0 \in I_M \wedge q_M^{\abs{w}} \in F_M \wedge
+q_N^0 \in I_N \wedge q_N^{\abs{w}} \in F_N
+& \text{\cref{def.computation} and \cref{lma.computation_length}} \\
+\Leftrightarrow \ & \text{There is a computation on } w \text{ in } M \cap N
+\text{:} \\
+& (q_M^0, q_N^0) (q_M^1, q_N^1) \cdots (q_M^{\abs{w}}, q_N^{\abs{w}})
+\in (Q_M \times Q_N)^{\ast}
+& \text{Formally, by induction} \\
+& \text{where } (q_M^0, q_N^0) \in I_M \times I_N \wedge
+(q_M^{\abs{w}}, q_N^{\abs{w}}) \in F_M \times F_N
+& \text{following \cref{def.computation}} \\
+\Leftrightarrow \ & \text{There is an accepting computation on } w
+\text{ in } M \cap N
+& \text{\cref{def.computation}} \\
+\Leftrightarrow \ & w \in L(M \cap N)
+& \text{\cref{def.NFA_language}} \\
+& \text{Therefore } L(M \cap N) = K \cap L
+\end{align*}
+However, since the computations in $M$ and $N$ are unique by \cref{def.UFA},
+it follows that their pointwise pairing (i.e. the computation in $M \cap N$) is
+also unique. Therefore, $M \cap N$ is a UFA. Thus, we conclude that
+$\mathrm{usc}(K \cap L) \leq \abs{Q_M \times Q_N} = mn$.
+\end{proof}
+
+\begin{lemma} \label{lma.disjoint_union_usc}
+If $K$ and $L$ are regular languages over $\Sigma$ with $K \cap L = \emptyset$,
+$\mathrm{usc}(K) = m$ and $\mathrm{usc}(L) = n$, then
+$\mathrm{usc}(K \cup L) \leq m + n$.
+\end{lemma}
+
+\begin{proof}
+Let $M = (Q_M, \Sigma, \delta_M, I_M, F_M)$ be a UFA with $m$ states that accepts
+$K$ and also let ${N = (Q_N, \Sigma, \delta_N, I_N, F_N)}$ be a UFA $n$ states that
+accepts $L$. Furthermore, without loss of generality, let $Q_M$ and $Q_N$ be
+disjoint. Now we construct a UFA $M \cup N$, such that
+$L(M \cup N) = K \cup L$. Define $M \cup N = (Q_M \cup Q_N, \Sigma,
+\delta_M \cup \delta_N, I_M \cup I_N, F_M \cup F_N)$.
+Clearly, $M \cup N$ is an NFA. First, we prove that $M \cup N$ accepts the
+correct language by considering each possible element $w \in \Sigma^{\ast}$ of the
+two sets $K \cup L$ and $L(M \cup N)$:
+\begin{align*}
+& w \in K \cup L = L(M) \cup L(N) \\
+\Leftrightarrow \ & w \in L(M) \vee w \in L(N) \\
+\Leftrightarrow \ & w \in L(M)
+& \text{WLOG since } K \cap L = \emptyset \\
+\Leftrightarrow \ & \text{There is a computation on } w \text{ in } M \text{:}
+& \text{\cref{def.NFA_language}, \cref{def.computation}} \\
+& q_M^0 q_M^1 \cdots q_M^{\abs{w}} \in Q_M^{\ast}
+\text{ where } q_M^0 \in I_M \wedge q_M^{\abs{w}} \in F_M
+& \text{and \cref{lma.computation_length}} \\
+\Leftrightarrow \ & \text{There is a computation on } w \text{ in } M \cup N
+\text{:} \\
+& q_M^0 q_M^1 \cdots q_M^{\abs{w}} \in Q_M^{\ast}
+\in (Q_M \cup Q_N)^{\ast}
+& \text{Formally, by induction} \\
+& \text{where } (q_M^0, q_N^0) \in I_M \cup I_N \wedge
+(q_M^{\abs{w}}, q_N^{\abs{w}}) \in F_M \cup F_N
+& \text{following \cref{def.computation}} \\
+\Leftrightarrow \ & w \in L(M \cap N)
+& \text{\cref{def.computation} and \cref{def.NFA_language}} \\
+& \text{Therefore } L(M \cup N) = K \cup L
+\end{align*}
+Now note that $M \cup N$ has no transition from a state in $Q_M$ to a state in
+$Q_N$ and vice verse. Therefore, all of its computations are either in $Q_M^{\ast}$
+or in $Q_N^{\ast}$. Finally, we prove that $M \cup N$ is a UFA by contradiction.
+Suppose that there are two accepting computations, $\bar{p}$ and $\bar{q}$,
+on some string $w \in \Sigma^{\ast}$. If $\bar{p}, \bar{q} \in Q_M^{\ast}$, then both
+are computations on $w$ in $M$, which is a contradiction, since $M$ is a UFA.
+Similarly, $\bar{p}, \bar{q} \in Q_N^{\ast}$ leads to a contradiction. So,
+without loss of generality, $\bar{p} \in Q_M^{\ast}$ and $\bar{q} \in Q_N^{\ast}$
+must be the case. However, this means that there are computations on $w$ in both
+$M$ and $N$, which implies that $w \in K$ and $w \in L$. This is a contradiction
+with $K \cap L = \emptyset$. Therefore, $M \cup N$ is a UFA and thus
+$\mathrm{usc}(K \cup L) \leq m + n$.
+\end{proof}
+
+\begin{theorem} \label{thm.union_usc}
+If $K$ and $L$ are regular languages over $\Sigma$ with $\mathrm{usc}(K) = m$
+and $\mathrm{usc}(L) = n$, then $\mathrm{usc}(K \cup L) \leq m + n (m + 1) e^{m / e}
+\leq m + n \cdot 2^{0.5308 \cdot m + \log (m + 1)}$.
+\end{theorem}
+
+\begin{proof}
+\begin{align*}
+& \mathrm{usc}(K \cup L) \\
+= \ & \mathrm{usc}(K \cup (L \setminus K)) \\
+\leq \ & m + \mathrm{usc}(L \setminus K)
+& \text{\cref{lma.disjoint_union_usc}} \\
+= \ & m + \mathrm{usc}(L \cap \overline{K}) \\
+\leq \ & m + n \cdot \mathrm{usc}(\overline{K})
+& \text{\cref{thm.intersection_usc}} \\
+\leq \ & m + n (m + 1) e^{m / e}
+& \text{\cref{thm.complement_usc}} \\
+\leq \ & m + n \cdot 2^{0.5308 \cdot m + \log (m + 1)}
+\end{align*}
+\end{proof}
+
+\begin{theorem} \label{thm.square_usc}
+If $L$ is a regular language over $\Sigma$ with $\mathrm{usc}(L) = n$, then
+$\mathrm{usc}(L^2) \leq (n + 1) e^{n / e} 2^n$ and thus 
+$\mathrm{usc}(L^2) \leq 2^{1.5308 \cdot n + \log (n + 1)}$.
+\end{theorem}
+
+\begin{proof}
+Let $M = (Q, \Sigma, \delta, I, F)$ be a UFA with $n$ states that accepts $L$.
+First, we construct an NFA $N$, such that $L(N) = L^2$. Define
+$N = (Q \times \set{1, 2}, \Sigma, \delta_N, I_N, F \times \set{2})$ where
+$\delta_N = \setc{((p, k), a, (q, k))}{(p, a, q) \in \delta \wedge k \in \set{1, 2}}
+\cup \setc{((p, 1), a, (q, 2))}{q \in I \wedge \exists q' \in F \cdot (p, a, q') \in
+\delta}$ and $I_N = I \times \set{1}$, if $I \cap F = \emptyset$, and
+$I_N = I \times \set{1, 2}$, otherwise. Now we prove that $N$ accepts the correct
+language by double inclusion.
+
+($L^2 \subseteq L(N)$) Suppose that $w \in L(N)$.
+It is easy to see that any accepting computation on
+$w \in \Sigma^{\ast}$ in $N$ is of the form $(q_0, 1) (q_1, 1) \cdots (q_{s - 1}, 1)
+(q_s, 2) (q_{s + 1}, 2) \cdots (q_{s + t}, 2)$ with $q_s \in I$, $q_{s + t} \in F$
+and $q_0 \in I$, if $s > 0$. This is because, there are no transitions of the form
+$((p, 2), a, (q, 1))$ in $\delta_N$.
+Now let $q'$ be a state, such that $q' \in I \cap F$, if $s = 0$,
+and $q' \in F$ with $(q_{s - 1}, w_s, q') \in \delta$.
+Such a state must exist due to the definitions of $\delta_N$ and $I_N$.
+It follows that $q_0 q_1 \cdots q_{s - 1} q'$ is a computation on
+$u = w_1 w_2 \cdots w_s$ in $M$. Also, $q_s q_{s + 1} \cdots q_t$ is a
+computation on $v = w_{s + 1} w_{s + 2} \cdots w_{s + t}$ in $M$.
+Furthermore, these are accepting computations, since their first states are both
+in $I$ and their last states are both in $F$. Therefore, $u, v \in L(M) = L$ and thus
+$w = uv \in L^2$.
+
+($L^2 \subseteq L(N)$) Suppose that $w \in L^2$, so $w = uv$ where
+$u, v \in L = L(M)$. Let $p_0 p_1 \cdots p_{\abs{u}}$ and
+$q_0 q_1 \cdots q_{\abs{v}}$ be the accepting computations in $M$ on $u$ and $v$,
+resepctively. Since they are accepting, $p_0, q_0 \in I$ and
+$p_{\abs{u}}, p_{\abs{v}} \in F$.
+It follows that $(p_0, 1) (p_1, 1) \cdots (p_{\abs{u} - 1}, 1) (q_0, 2) (q_1, 2)
+\cdots (q_{\abs{v}}, 2)$ is an accepting computation on $w = uv$ in $N$.
+The only non-trivial part is verifying that the transition to $(q_0, 2)$ is valid.
+If $u = \epsilon$, then $(p_0, 1) (p_1, 1) \cdots (p_{\abs{u} - 1}, 1) = \epsilon$
+and thus $(q_0, 2)$ is the first state of the computation, but we already have that
+$q_0 \in I$ and that $I \cap F \neq \emptyset$ (because $p_0 \in I$ and $p_0 \in F$),
+so $(q_0, 2) \in I_N$ by its definition. If $u \neq \epsilon$, then, since
+$q_0 \in I$ and $p_{\abs{u}} \in F$, there is a transition
+$((p_{\abs{u} - 1}, 1), u_{\abs{u}}, (q_0, 2))$ in $\delta_N$ by its definition.
+
+Now we consider two ways for constructing a UFA $M^2$, such that $L(M^2) = L^2$.
+One construction is $2^N$ and another is $(2^{N^R})^R$. Since
+$L(2^N) = L((2^{N^R})^R) = L(N) = L^2$, both are valid. Therefore,
+$\mathrm{usc}(L^2) \leq \min\set{\abs{2^N}, \abs{2^{N^R})^R}} =
+\min\set{\abs{\mathcal{R}_N}, \abs{\mathcal{C}_N}}$. However, clearly the
+reachability of states of the form $(p, 1)$ is not affected by the addition
+of states of the form $(q, 2)$. Therefore,
+${\mathcal{R}_N \subseteq \setc{(S \times \set{1}) \cup (B \times \set{2})}
+{S \in \mathcal{R}_M \wedge B \subseteq Q}}$. Similarly for co-reachability but
+with the two types of states swapped, so  $\mathcal{C}_N \subseteq
+\setc{(T \times \set{2}) \cup (A \times \set{1})}
+{T \in \mathcal{C}_M \wedge A \subseteq Q}$. Thus,
+$\abs{\mathcal{R}_N} \leq \abs{\mathcal{R}_M} 2^n$ and
+$\abs{\mathcal{C}_N} \leq \abs{\mathcal{C}_M} 2^n$. Finally, $\mathrm{usc}(L^2)
+\leq \min\set{\abs{\mathcal{R}_M}, \abs{\mathcal{C}_M}} 2^n
+\leq (n + 1) e^{n / e} 2^n \leq 2^{1.5308 \cdot n + \log (n + 1)}$, using the result
+from the proof of \cref{thm.complement_usc}.
+\end{proof}
+
+\section{Other explored approaches}
+
+In this section we shall briefly describe what other approaches for bounding
+the complement operation were tried, what results (if any) they led to and why
+they were ultimately not used. Our final proof consists of three main steps:
+the construction from \cref{lma.UFA_complement_construction}, the reduction to a
+problem about the number of cliques and cocliques of a graph in
+\cref{lma.max_comp_bijection_inverse_cliques} and the bound for graphs in
+\cref{lma.min_num_cliques_cocliques}.
+
+The general approach used for the last step is to examine some constrained property
+of both the graph and cograph, take into account the effect that constraint has
+on the cograph and graph, respectively, and finally get a bound on the number of
+cliques for each of the two, independently from each other. Clearly, the tightness
+of the obtained upper bound depends on the property used. To make this concrete,
+our final approach is to examine the the maximal clique and the maximal coclique
+of the graph, which effectively ``removes" nodes from the cograph and the graph,
+respectively (more accurately, it ``removes" all edges between any pair of those
+nodes). Finally, we get a bound for the number of cliques in each of the two graphs,
+independently from each other, and then analyse the minimum of those.
+An earlier idea was to instead use the number of edges in the graph and in the
+cograph. Since the two sum up to $\binom{n}{2} \leq \frac{n^2}{2}$, the relationship
+between them is easy to analyse. Then, using a result by \cite{cliques_edges} and a
+similar style of analysis as in our proof of \cref{lma.min_num_cliques_cocliques},
+we can obtain an upper bound of $2^{n / \sqrt{2}} + n \leq 2^{0.7071 \cdot n} + n$.
+This is still an improvement on \cite{UFA_UB}'s bound but is worse than our final
+result. This makes sense, as examining at the maximal clique and coclique preserves
+much more of the structure between the graph and the cograph, compared to using
+at just the number of edges in each. The option of using both properties at once
+was also considered. However, it was found that this could not improve the constant
+factor in the linear term of the exponent, only the $\log$ term. This is because
+the worst-case for the graph, i.e. the case that maximizes the minimum of the number
+of cliques and the number of cocliques, has a maximal clique and a maximal coclique
+size of $\frac{n}{e}$. Therefore, the part of the construction, which produces the
+$e^{n / e}$ factor in the number of cliques, has no more than
+$n^2 \bracks*{\frac{e - 1}{e}}^2 \leq 0.3995 \cdot n^2$ edges, but this is less than
+$\binom{n}{2} / 2$, so there are enough edges for both the graph and the cograph.
+Thus, taking the number of edges into account does not break this worst-case
+construction and therefore cannot improve the linear term in the exponent in the
+final upper bound.
+
+Another unrelated approach for obtaining an upper bound on
+$\min\set{\abs{\mathcal{R}}, \abs{\mathcal{C}}}$ was considered before discovering
+the reduction to a problem about graphs. It was to instead find a bound for
+$\abs{\mathcal{R}} \cdot \abs{\mathcal{C}}$. Then the square root of that would be a
+bound for $\min\set{\abs{\mathcal{R}}, \abs{\mathcal{C}}}$. Note that this is not a
+good idea in general, e.g. trying the same with
+$\abs{\mathcal{R}} + \abs{\mathcal{C}}$ would clearly be pointless. However, as we
+will discuss in \cref{chp.computer_exploration}, our computer-aided search suggests
+that this approach can lead to a bound not much larger than one based on directly
+considering $\min\set{\abs{\mathcal{R}}, \abs{\mathcal{C}}}$. This led to
+\cref{cnj.better_bound}, which we state below. Unfortunately, in the end, no good
+way to work with this product was found, so this approach did not lead to any proven
+results.
+
+\begin{conjecture} \label{cnj.better_bound}
+For any compatible pair $(\mathcal{R}, \mathcal{C})$, the following bound holds:
+$\abs{\mathcal{R}} \cdot \abs{\mathcal{C}} \leq (n + 1) 2^n$.
+Thus, $\min\set{\abs{\mathcal{R}}, \abs{\mathcal{C}}} \leq
+2^{0.5 \cdot n + 0.5 \cdot \log (n + 1)}$.
+\end{conjecture}
+
+\chapter{Computer-aided exploration of the problem}
+\label{chp.computer_exploration}
+
+In this chapter, we outline a search routine that was written while exploring the
+problem before trying to obtain any sort of upper bound. We also describe what
+optimizations were made and what results the search produced. A full code listing
+can be found in \cref{app.code}.
+
+\section{Description}
+
+The search iterates through all compatible pairs $(\mathcal{R}, \mathcal{C})$ for a
+given $n$ and outputs the maximum $\min\set{\abs{\mathcal{R}}, \abs{\mathcal{C}}}$
+found. Of course, this cannot be expected to terminate in a reasonable amount of
+time, so the program also outputs any improvements to the maximum so far any time
+such an improvement is made. Thus, the faster the search routine is, the closer
+to the actual maximum its result (in some fixed amount of time) is. Now we describe
+the general approach of the search, as well as any optimizations made.
+
+First of all, it is important to note that we represent the elements of $\mathcal{R}$
+and $\mathcal{C}$ (i.e. sets of states) as 32 bit integers. Each state (enumerated
+from $0$ to $n - 1$) is associated with some bit of the integer. If that bit is set,
+then the state is in the set, and otherwise it isn't in the set. This allows for
+very efficient implementations of set operations as single CPU instructions.
+This is most critical for intersection, since checking whether
+$\abs{S \cap T} \leq 1$ holds for some pair of sets $S$ and $T$ is a very frequent
+operation, so we compute $\cap$ as a bitwise AND, like so: \verb|inter = S & T|.
+Then we need to check whether the size of the intersection is less than $2$. The
+na\"ive approach would be to count the number of set bits in \verb|inter|, but that
+takes $N$ iterations and is thus too slow. We can take advantage of the way binary
+arithmetic works and note that subtracting $1$ from a number flips all its bits
+until its first (from right to left) set bit, including that set bit, but leaves
+all bits after that as they were. Therefore, \verb|inter & (inter - 1)| is equal to
+zero, if and only if \verb|inter| has at most one set bit, which is precisely what we
+want.
+
+After covering how we operate with these sets, we now outline the structure of the
+search routine. First, we note that we can always include the empty set and all
+singleton sets in both $\mathcal{R}$ and $\mathcal{C}$, so we call such sets
+``boring'' and we call sets of size greater than $1$ ``interesting''. Thus, we start
+by generating a list of all interesting sets (there are $2^n - n - 1$ such sets).
+Then we need to place each each interesting set in $\mathcal{R}$, in $\mathcal{C}$
+or in neither. However, that produces an exponential term with base $3$, which would
+be quite slow. Instead, for each interesting set, we either include it in
+$\mathcal{R}$ or not; we do not keep track of $\mathcal{C}$ at all. Of course,
+this is done recursively, like so:
+
+\begin{lstlisting}
+R.push_back(curr_set);
+rec_solve(pos + 1);
+R.pop_back();
+rec_solve(pos + 1);
+\end{lstlisting}
+
+Then, at the leaves of the recursion, we can compute the maximal $\mathcal{C}$ that
+is compatible with the current $\mathcal{R}$ by iterating through all interesting
+sets not in $\mathcal{R}$ and, for each, checking it against every interesting set
+in $\mathcal{R}$ using bitwise operations, as described above. Note that we
+exclude the interesting sets in $\mathcal{R}$ using a simple two pointers approach,
+like so:
+
+\begin{lstlisting}
+int ptr = 0;
+for (int T : interesting_sets)
+{
+    while (ptr < R.size() && R[ptr] < T) ++ptr;
+    if (ptr < R.size() && R[ptr] == T) continue;
+    if (test_set(R, T)) C.push_back(T);
+}
+\end{lstlisting}
+
+The search described so far would work, but is still quite inefficient, so we add
+several more optimizations. First, we actually compute the maximal compatible
+$\mathcal{C}$ at each step of the recursion, not only in the leaves. This allows
+us to obtain upper bounds on $\abs{\mathcal{R}}$ and $\abs{\mathcal{C}}$ for
+any $\mathcal{R}$ and $\mathcal{C}$ that could be produced by this branch of the
+recursion, like so:
+
+\begin{lstlisting}
+int max_R_size = R.size() + interesting_sets.size() - pos + n + 1;
+int max_C_size = C.size() + n + 1;
+\end{lstlisting}
+
+Then, if the maximum possible answer this branch can lead to is not greater than
+the maximum found so far, we can instantly prune it. This gives us an incentive to
+quickly produce good estimates for the actual maximum, so we can prune branches
+earlier and more often. One idea is to simply update the answer in all steps
+of the recursion and not just the leaves. However, we can improve that even further.
+Instead of using the current $\mathcal{R}$ with its maximal $\mathcal{C}$, we can
+use the maximal $\mathcal{R}'$ with respect to the maximal $\mathcal{C}$. We find
+this in the same way as the maximal $\mathcal{C}$, which we already described,
+but we skip elements already in $\mathcal{R}$, in addition to elements in
+$\mathcal{C}$. This allows us to approach the actual maximum more quickly and thus
+take more advantage of the pruning.
+
+Finally, we take care to consider only maximal compatible pairs while searching. More
+accurately, we want to consider pairs that might lead to maximal pairs in the leaves
+of the recursion. Note that this does not invalidate the optimization above, since
+it is performed before reaching the leaves and thus before the full $\mathcal{R}$
+is constructed. We do this while computing the maximal $\mathcal{R}'$:
+for each interesting set not in $\mathcal{R}$ or $\mathcal{C}$, we check whether
+it could be added to $\mathcal{R}'$; if yes and if it is after the current
+interesting set, we simply include it in $\mathcal{R}'$, but if it is before the
+current interesting set, i.e. it has already been considered, then this $\mathcal{R}$
+cannot lead to a maximal pair, as it does not include a set that is guaranteed to
+always be okay to include without breaking compatibility. Therefore, if such an
+interesting set is found, we can prune the current branch. An additional, small
+optimization to that is to not look into the child branch that does not include
+the current set, if it is included in $\mathcal{R}'$ (such a branch would be
+eventually pruned anyway):
+
+\begin{lstlisting}
+bool fits = test_set(C, curr_set);
+R.push_back(curr_set);
+rec_solve(pos + 1);
+R.pop_back();
+if (!fits) rec_solve(pos + 1);
+\end{lstlisting}
+
+This concludes the description of our main search routine. Note that the search
+remains the same regardless of whether we are looking for the maximal possible
+$\min\set{\abs{\mathcal{R}}, \abs{\mathcal{C}}}$ or
+$\abs{\mathcal{R}} \cdot \abs{\mathcal{C}}$, so we can simply toggle between the
+two using a Boolean constant and few \verb|constexpr| \verb|if|-s without needing
+to rewrite any of the code.
+
+\section{Results}
+
+After running the search for values of $n$ up to $n = 20$, the results
+(in \cref{fig.results}) suggested that a better upper bound than
+\cite{UFA_UB}'s is possible using their construction. Furthermore,
+the results for $\abs{\mathcal{R}} \cdot \abs{\mathcal{C}}$ indicate that
+the upper bound of $(n + 1) 2^n$ likely holds for that product,
+which leads to \cref{cnj.better_bound}. Examining the output of the program
+reveals that this conjectured bound is met when $\abs{\mathcal{R}} = n + 1$
+and $\abs{\mathcal{C}} = 2^n$ or vice versa, i.e. when $\mathcal{R}$ contains
+only the boring sets (ones of size less than $2$) and $\mathcal{C} = 2^Q$.
+
+\begin{figure}[h]
+\centering
+\begin{tabular}{ | m{1.5em} || m{6em} | m{6em} | m{6em} | m{6em} | }
+\hline
+$n$ & $\min\set{\abs{\mathcal{R}}, \abs{\mathcal{C}}}$
+& $\abs{\mathcal{R}} \cdot \abs{\mathcal{C}}$
+& $\sqrt{\abs{\mathcal{R}} \cdot \abs{\mathcal{C}}}$
+& $(n + 1) e^{n / e}$ \\
+\hline \hline
+1 & \textbf{2} & \textbf{4} & \textbf{2.00} & 2.89 \\
+\hline
+2 & \textbf{3} & \textbf{12} & \textbf{3.46} & 6.26 \\
+\hline
+3 & \textbf{5} & \textbf{32} & \textbf{5.66} & 12.06 \\
+\hline
+4 & \textbf{8} & \textbf{80} & \textbf{8.94} & 21.78 \\
+\hline
+5 & \textbf{12} & \textbf{192} & \textbf{13.86} & 37.76 \\
+\hline
+6 & \textbf{18} & \textbf{448} & \textbf{21.17} & 63.64 \\
+\hline
+7 & \textbf{26} & \textbf{1024} & \textbf{32.00} & 105.07 \\
+\hline
+8 & 38 & 2304 & 48.00 & 170.76 \\
+\hline
+9 & 56 & 5120 & 71.55 & 274.10 \\
+\hline
+10 & 80 & 11264 & 106.13 & 435.58 \\
+\hline
+11 & 128 & 24576 & 156.77 & 686.48 \\
+\hline
+12 & 165 & 53248 & 230.76 & 1074.38 \\
+\hline
+13 & 263 & 114688 & 338.66 & 1671.52 \\
+\hline
+14 & 352 & 245760 & 495.74 & 2587.28 \\
+\hline
+15 & 526 & 524288 & 724.08 & 3986.94 \\
+\hline
+16 & 768 & 1114112 & 1055.52 & 6119.80 \\
+\hline
+17 & 1062 & 2359296 & 1536.00 & 9361.14 \\
+\hline
+18 & 1544 & 4980736 & 2231.76 & 14275.06 \\
+\hline
+19 & 2176 & 10485760 & 3238.17 & 21708.12 \\
+\hline
+20 & 3328 & 22020096 & 4692.56 & 32929.07 \\
+\hline
+\end{tabular}
+\caption[Results from the brute-force search routine]
+{Results from the described search routine. Bold entries indicate that the
+search terminated, non-bold ones indicate that these are just partial results.
+Rightmost column is for comparison with our proven upper bound.}
+\label{fig.results}
+\end{figure}
+
+\chapter{Conclusions}
+
+We have lowered the upper bound for complementing a UFA, or more formally,
+for the unambiguous state complexity of the complement operation.
+This is our most interesting and significant result.
+Our proof is based on a reduction to a graph theory problem and then
+obtaining an upper bound for that. We then used this bound to also improve
+the bounds for the union and square operations. Furthermore, we have run
+an optimized brute-force search, which suggest that it is possible to further improve
+our upper bound. We have stated this as a conjecture. However, even if that
+conjecture is true, the upper bound would still be much higher than the current best
+lower bound. Therefore, it is unclear whether pursuing that is the most appropriate
+direction for future research on the topic at the moment.
+
+\bibliographystyle{apalike}
+\bibliography{bibliography}
+
+\begin{appendices}
+
+\crefalias{chapter}{appendix}
+
+\chapter{Formal presentation of strings and languages}
+\label{app.strings_and_langauges}
+
+This appendix contains formal definitions and proofs of necessary results about
+strings and languages.
+
+\section{Finite strings over finite alphabets}
+
+\begin{definition} \label{def.star_and_strings}
+The \emph{set of all finite strings over a finite set of symbols} $\Sigma$, the
+\emph{alphabet}, is $\Sigma^{\ast}$, which is defined to be the least set such that
+$\epsilon \in \Sigma^{\ast}$ and $a \cdot w \in \Sigma^{\ast}$ for $a \in \Sigma$
+and $w \in \Sigma^{\ast}$ where
+$\cdot : \Sigma \times \Sigma^{\ast} \rightarrow \Sigma^{\ast}$ is the
+\emph{string construction operator}.
+
+We usually refer to finite strings as just strings, since we do not deal
+with infinite strings. We also refer to strings as \emph{sequences} when
+talking about sets other than $\Sigma$ in order to avoid confusion.
+\end{definition}
+
+\begin{definition} \label{def.string_concatenation}
+The \emph{string concatenation operator}
+$\cdot^{\ast} : \Sigma^{\ast} \times \Sigma^{\ast} \rightarrow \Sigma^{\ast}$ is
+inductively defined by $\epsilon \cdot^{\ast} w = w$ and
+$(a \cdot v) \cdot^{\ast} w = a \cdot (v \cdot^{\ast} w)$ for $a \in \Sigma$
+and $w, v \in \Sigma^{\ast}$.
+\end{definition}
+
+\begin{lemma} \label{lma.string_concatenation_unit}
+The string $\epsilon$ is a unit of string concatenation. Formally,
+$\epsilon \cdot^{\ast} w = w$ and $w \cdot^{\ast} \epsilon = w$ for
+$w \in \Sigma^{\ast}$.
+\end{lemma}
+
+\begin{proof}
+The first part is immediate from \cref{def.string_concatenation}.
+
+We prove the second part by induction on $w$:
+\begin{align*}
+& \text{Case } w = \epsilon \text{:} \\
+& w \cdot^{\ast} \epsilon \\
+= \ & \epsilon \cdot^{\ast} \epsilon \\
+= \ & \epsilon
+& \text{\cref{def.string_concatenation}} \\
+= \ & w \\
+\\
+& \text{Case } w = a \cdot v \text{ where } a \in \Sigma \text{ and }
+v \in \Sigma^{\ast} \text{:} \\
+& w \cdot^{\ast} \epsilon \\
+= \ & (a \cdot v) \cdot^{\ast} \epsilon \\
+= \ & a \cdot (v \cdot^{\ast} \epsilon)
+& \text{\cref{def.string_concatenation}} \\
+= \ & a \cdot v
+& \text{Inductive hypothesis} \\
+= \ & w
+\end{align*}
+\end{proof}
+
+From now on we omit writing the string construction operator $\cdot$ as well as
+the final $\epsilon$ of a finite string. E.g. instead of writing
+$a \cdot (b \cdot \epsilon)$, we write $ab$.
+We also omit writing the string concatenation operator $\cdot^{\ast}$. E.g. instead
+of writing $w \cdot^{\ast} v$, we write $wv$.
+
+\begin{definition} \label{def.string_length}
+The \emph{length of string} $w \in \Sigma^{\ast}$ is $\abs{w}$, which is inductively
+defined by $\abs{\epsilon} = 0$ and $\abs{av} = 1 + \abs{v}$ for $a \in \Sigma$
+and $v \in \Sigma^{\ast}$.
+\end{definition}
+
+\begin{lemma} \label{lma.string_concatenation_length}
+The length of the concatenation of two strings $w, u \in \Sigma^{\ast}$ is equal
+to the sum of their lengths. Formally, $\abs{wu} = \abs{w} + \abs{u}$.
+\end{lemma}
+
+\begin{proof}
+We prove the lemma by induction on $w$:
+\begin{align*}
+& \text{Case } w = \epsilon \text{:} \\
+& \abs{wu} \\
+= \ & \abs{\epsilon u} \\
+= \ & \abs{u}
+& \text{\cref{def.string_concatenation}} \\
+= \ & \abs{\epsilon} + \abs{u}
+& \text{\cref{def.string_length}} \\
+= \ & \abs{w} + \abs{u} \\
+\\
+& \text{Case } w = a \cdot v \text{ where } a \in \Sigma \text{ and }
+v \in \Sigma^{\ast} \text{:} \\
+& \abs{wu} \\
+= \ & \abs{(av)u}
+& \text{\cref{def.string_concatenation}} \\
+= \ & 1 + \abs{a(vu)}
+& \text{\cref{def.string_length}} \\
+= \ & 1 + \abs{v} + \abs{u}
+& \text{Inductive hypothesis} \\
+= \ & \abs{av} + \abs{u}
+& \text{\cref{def.string_length}} \\
+= \ & \abs{w} + \abs{u} \\
+\end{align*}
+\end{proof}
+
+\begin{definition} \label{def.reverse_string}
+The \emph{reverse of a string} $w \in \Sigma^{\ast}$, is another string $w^R$
+inductively defined by $\epsilon^R = \epsilon$ and $(av)^R = (v^R) a$ for 
+$a \in \Sigma$ and $v \in \Sigma^{\ast}$. Thus, informally,
+$(a_1 a_2 \cdots a_m)^R = a_m a_{m-1} \cdots a_1$ for all $a_i \in \Sigma$.
+\end{definition}
+
+\begin{lemma} \label{lma.reverse_string_alternative}
+$(wa)^R = a (w^R)$ for $a \in \Sigma$ and $w \in \Sigma^{\ast}$.
+\end{lemma}
+
+\begin{proof}
+We prove the lemma by induction on $w$:
+\begin{align*}
+& \text{Case } w = \epsilon \text{:} \\
+& (wa)^R \\
+= \ & (\epsilon a)^R \\
+= \ & (a \epsilon)^R
+& \text{\cref{lma.string_concatenation_unit}} \\
+= \ & (\epsilon^R) a
+& \text{\cref{def.reverse_string}} \\
+= \ & \epsilon a
+& \text{\cref{def.reverse_string}} \\
+= \ & a \epsilon
+& \text{\cref{lma.string_concatenation_unit}} \\
+= \ & a (\epsilon^R)
+& \text{\cref{def.reverse_string}} \\
+= \ & a (w^R) \\
+\\
+& \text{Case } w = bv \text{ where } b \in \Sigma \text{ and }
+v \in \Sigma^{\ast} \text{:} \\
+& (wa)^R \\
+= \ & ((bv)a)^R \\
+= \ & (b(va))^R
+& \text{\cref{def.string_concatenation}} \\
+= \ & (va)^R b
+& \text{\cref{def.reverse_string}} \\
+= \ & a (v^R) b
+& \text{Inductive hypothesis} \\
+= \ & a (bv)^R
+& \text{\cref{def.reverse_string}} \\
+= \ & a (w^R)
+\end{align*}
+\end{proof}
+
+\begin{lemma} \label{lma.reverse_reverse_string}
+The reverse of the reverse of a string $w \in \Sigma$ is equal to $w$.
+Formally, $(w^R)^R = w$.
+\end{lemma}
+
+\begin{proof}
+We prove the lemma by case analysis on $w$:
+\begin{align*}
+& \text{Case } w = \epsilon \text{:} \\
+& (w^R)^R \\
+= \ & (\epsilon^R)^R \\
+= \ & (\epsilon)^R
+& \text{\cref{def.reverse_string}} \\
+= \ & \epsilon
+& \text{\cref{def.reverse_string}} \\
+= \ & w \\
+\\
+& \text{Case } w = av \text{ where } a \in \Sigma \text{ and }
+v \in \Sigma^{\ast} \text{:} \\
+& (w^R)^R \\
+= \ & ((av)^R)^R \\
+= \ & (v^R a)^R
+& \text{\cref{def.reverse_string}} \\
+= \ & a ((v^R)^R)
+& \text{\cref{lma.reverse_string_alternative}} \\
+= \ & av
+& \text{Inductive hypothesis} \\
+= \ & w
+\end{align*}
+\end{proof}
+
+A consequence of the above lemma is the following corollary:
+
+\begin{corollary} \label{crl.reverse_string_bijection}
+String reversal is a bijection and its own inverse and thus $w = v$ if and only if
+$w^R = v^R$ for $w, r \in \Sigma^{\ast}$.
+\end{corollary}
+
+\begin{definition} \label{def.first_last}
+The \emph{first symbol} of a string $aw$ is $a$ and the
+\emph{last symbol} of a string $wa$ is $a$ for $a \in \Sigma$ and
+$w \in \Sigma^{\ast}$ where $w \neq \epsilon$.
+\end{definition}
+
+\begin{lemma} \label{lma.first_last_reverse}
+The first symbol of a non-empty string $w \in \Sigma^{\ast}$ is equal to the last
+symbol of its reverse $w^R$ and the last symbol of $w$ is equal to the first symbol
+of $w^R$.
+\end{lemma}
+
+\begin{proof}
+First, we prove the first part:
+\begin{align*}
+& \text{Suppose } w \text{ has } a \in \Sigma \text{ as its first symbol } \\
+\Rightarrow \ & w = av \text{ where } v \in \Sigma^{\ast}
+& \text{\cref{def.first_last}} \\
+\Rightarrow \ & w^R = (v^R) a
+& \text{\cref{def.reverse_string}} \\
+\Rightarrow \ & w^R \text{ has } a \in \Sigma \text{ as its last symbol }
+& \text{\cref{def.first_last}}
+\end{align*}
+The proof of the second part is analogous, by starting with $w^R$
+and applying \cref{lma.reverse_reverse_string} at the end.
+\end{proof}
+
+\section{Languages}
+
+\begin{definition}
+A \emph{language over a finite alphabet} $\Sigma$ is a set
+$L \subseteq \Sigma^{\ast}$. 
+\end{definition}
+
+\begin{definition} \label{def.reverse_language}
+The \emph{reverse of a language} $L$ is another language
+$L^R = \setc{w^R}{w \in L}$.
+\end{definition}
+
+\begin{lemma} \label{lma.reverse_reverse_language}
+The reverse of the reverse of a language $L$ is equal to
+$L$. Formally, $(L^R)^R = L$.
+\end{lemma}
+
+\begin{proof}
+\begin{align*}
+& (L^R)^R \\
+= \ & \setc{w^R}{w \in L^R}
+& \text{\cref{def.reverse_language}} \\
+= \ & \setc{w^R}{w \in \setc{v^R}{v \in L}} &
+\text{\cref{def.reverse_language}} \\
+= \ & \setc{(w^R)^R}{w^R \in \setc{v^R}{v \in L}} &
+\text{\cref{crl.reverse_string_bijection}} \\
+= \ & \setc{w}{w^R \in \setc{v^R}{v \in L}} &
+\text{\cref{lma.reverse_reverse_string}} \\
+= \ & \setc{w}{w \in \setc{v}{v \in L}} &
+\text{\cref{crl.reverse_string_bijection}} \\
+= \ & \setc{w}{w \in L} \\
+= \ & L
+\end{align*}
+\end{proof}
+
+\begin{lemma} \label{lma.reverse_language_subset}
+The subset relation is preserved under language reversal. formally,
+if $L_1 \subseteq L_2$, then $L_1^R \subseteq L_2^R$ for
+$L_1, L_2 \subseteq \Sigma^{\ast}$.
+\end{lemma}
+
+\begin{proof}
+\begin{align*}
+& \text{Let } w \in L_1^R \\
+\Rightarrow \ & w^R \in (L_1^R)^R
+& \text{\cref{def.reverse_language}} \\
+\Rightarrow \ & w^R \in L_1
+& \text{\cref{lma.reverse_reverse_language}} \\
+\Rightarrow \ & w^R \in L_2
+& \text{Since } L_1 \subseteq L_2 \\
+\Rightarrow \ & (w^R)^R \in L_2^R
+& \text{\cref{def.reverse_language}} \\
+\Rightarrow \ & w \in L_2^R
+& \text{\cref{lma.reverse_reverse_string}} \\
+& \text{Therefore } L_1^R \subseteq L_2^R
+\end{align*}
+\end{proof}
+
+\begin{definition} \label{def.complement_language}
+The \emph{complement of a language} $L \subseteq \Sigma^{\ast}$ is another language
+$\overline{L} = \Sigma^{\ast} \setminus L$.
+\end{definition}
+
+\begin{definition} \label{def.square_language}
+The \emph{square of a language} $L$ is another language
+$L^2 = \setc{uv}{u, v \in L}$.
+\end{definition}
+
+\chapter{Supplementary proofs about finite automata}
+\label{app.proofs_automata}
+
+This appendix provides the proofs of lemmas stated in \cref{sct.automata},
+but it does not restate the definitions there, so it only serves as a supplement
+for readers unfamiliar with these concepts.
+
+\begin{lemma} \label{lma.reverse_reverse_transition_relation}
+The reverse of the reverse of the transition relation
+$\delta \subseteq Q \times \Sigma \times Q$ of an NFA $M$ is equal to $\delta$.
+Formally, $(\delta^R)^R = \delta$.
+\end{lemma}
+
+\begin{proof}
+\begin{align*}
+& (\delta^R)^R \\
+= \ & \setc{(p, a, q)}{(q, a, p) \in \delta^R}
+& \text{\cref{def.reverse_NFA}} \\
+= \ & \setc{(p, a, q)}{(q, a, p) \in \setc*{(q, a, p)}{(p, a, q) \in \delta}}
+& \text{\cref{def.reverse_NFA}} \\
+= \ & \setc{(p, a, q)}{(p, a, q) \in \delta} \\
+= \ & \delta
+\end{align*}
+\end{proof}
+
+\begin{lemma} \label{lma.reverse_reverse_NFA}
+The reverse of the reverse of an NFA $M$ is equal to $M$. Formally, $(M^R)^R = M$.
+\end{lemma}
+
+\begin{proof}
+\begin{align*}
+& (M^R)^R \\
+= \ & ((Q, \Sigma, \delta, I, F)^R)^R \\
+= \ & (Q, \Sigma, \delta^R, F, I)^R &
+\text{\cref{def.reverse_NFA}} \\
+= \ & (Q, \Sigma, (\delta^R)^R, I, F) &
+\text{\cref{def.reverse_NFA}} \\
+= \ & (Q, \Sigma, \delta, I, F) &
+\text{\cref{lma.reverse_reverse_transition_relation}} \\
+= \ & M
+\end{align*}
+\end{proof}
+
+\begin{lemma} \label{lma.computation_length}
+If an NFA $M$ has a computation $\bar{q} \in Q^{\ast}$ on
+$w \in \Sigma^{\ast}$, then $\abs{q} = \abs{w} + 1$.
+\end{lemma}
+
+\begin{proof}
+We prove the lemma by induction on $w$:
+\begin{align*}
+& \text{Case } w = \epsilon \text{:} \\
+\Rightarrow \ & \bar{q} = q \text{ where } q \in Q
+& \text{\cref{def.computation}} \\
+\Rightarrow \ & \abs{\bar{q}} = 1 = \abs{w} + 1
+& \text{\cref{def.string_length}} \\
+\\
+& \text{Case } w = av \text{ where } a \in \Sigma \text{ and } v \in \Sigma^{\ast}
+\text{:} \\
+\Rightarrow \ & \bar{q} = pq \bar{p} \text{ where } (p, a, q) \in \delta
+\text{ and } M \text{ has a computation } q \bar{p} \text{ on } v
+& \text{\cref{def.computation}} \\
+\Rightarrow \ & q \bar{p} = \bar{v} + 1
+& \text{Inductive hypothesis} \\
+\Rightarrow \ & pq \bar{p} = \bar{v} + 2 = \bar{w} + 1
+& \text{\cref{def.string_length}} \\
+\end{align*}
+\end{proof}
+
+\begin{lemma} \label{lma.computation_join}
+If an NFA $M$ has a computation $\bar{q}_u p \in Q^{\ast}$ on
+$u \in \Sigma^{\ast}$ and a computation $p \bar{q}_v p \in Q^{\ast}$ on
+$v \in \Sigma^{\ast}$ where $p \in Q$, then $M$ has a computation
+$\bar{q}_u p \bar{q}_v$ on $uv$.
+\end{lemma}
+
+\begin{proof}
+We prove the lemma by induction on $u$:
+\begin{align*}
+& \text{Case } u = \epsilon \text{:} \\
+\Rightarrow \ & \bar{q}_u p = p
+& \text{\cref{def.computation}} \\
+\Rightarrow \ & uv = v \text{ and } \bar{q}_u p \bar{q}_v = p \bar{q}_v
+& \text{\cref{def.string_concatenation}} \\
+& \text{Therefore } M \text{ has a computation } \bar{q}_u p \bar{q}_v \text{ on } uv \\
+\\
+& \text{Case } u = a \text{ where } a \in \Sigma \text{:} \\
+\Rightarrow \ & \bar{q}_u p = qp \text{ where } (q', a, p) \in \delta
+& \text{\cref{def.computation}} \\
+\Rightarrow \ & uv = av \text{ and } \bar{q}_u p \bar{q}_v = qp \bar{q}_v
+& \text{\cref{def.string_concatenation}} \\
+& \text{Therefore } M \text{ has a computation } \bar{q}_u p \bar{q}_v \text{ on } uv
+& \text{\cref{def.computation}} \\
+\\
+& \text{Case } u = abw \text{ where } a, b \in \Sigma \text{ and } w \in
+\Sigma^{\ast} \text{:} \\
+\Rightarrow \ & \bar{q}_u p = p'q \bar{p} p \text{ where } (p', a, q) \in \delta
+\text{ and } M \text{ has a computation } q \bar{p} p \text{ on } bw
+& \text{\cref{def.computation}} \\
+\Rightarrow \ & M \text{ has a computation } q \bar{p} p \bar{q}_v \text{ on } bwv
+& \text{Inductive hypothesis} \\
+& \text{and } uv = abwv \text{ and }
+\bar{q}_u p \bar{q}_v = p'q \bar{p} p \bar{q}_v
+& \text{\cref{def.string_concatenation}} \\
+& \text{Therefore } M \text{ has a computation } \bar{q}_u p \bar{q}_v \text{ on } uv
+& \text{\cref{def.computation}} \\
+\end{align*}
+\end{proof}
+
+A consequence of the above lemma is the following corollary (since $pq$ is a
+computation on $a$):
+
+\begin{corollary} \label{crl.computation_alternative}
+If an NFA $M$ has a computation $\bar{q} p \in Q^{\ast}$ on $w \in \Sigma^{\ast}$
+and $(p, a, q) \in \delta$, then $M$ also has a computation $bar{q} pq$ on $wa$.
+\end{corollary}
+
+\begin{lemma} \label{lma.reverse_computation}
+If an NFA $M$ has a computation $\bar{q} \in Q^{\ast}$ on $w \in \Sigma^{\ast}$,
+then $M^R$ has a computation $\bar{q}^R$ on $w^R$.
+\end{lemma}
+
+\begin{proof}
+We prove the lemma by induction $w$:
+\begin{align*}
+& \text{Case } w = \epsilon \text{:} \\
+\Rightarrow \ & \bar{q} = q \text{ where } q \in Q
+& \text{\cref{def.computation}} \\
+\Rightarrow \ & w^R = \epsilon \text{ and } \bar{q}^R = q
+& \text{\cref{def.reverse_string}} \\
+\Rightarrow \ & M^R \text{ has a computation } \bar{q}^R \text{ on } w^R
+& \text{\cref{def.computation}} \\
+\\
+& \text{Case } w = av \text{ where } a \in \Sigma \text{ and } v \in \Sigma^{\ast}
+\text{:} \\
+\Rightarrow \ & \bar{q} = pq \bar{p} \text{ where } (p, a, q) \in \delta
+\text{ and } M \text{ has a computation } q \bar{p} \text{ on } v
+& \text{\cref{def.computation}} \\
+\Rightarrow \ & (q, a, p) \in \delta^R
+& \text{\cref{def.reverse_NFA}} \\
+& \text{ and } M^R \text{ has a computation } (\bar{p}^R) q \text{ on } v^R
+& \text{Inductive hypothesis} \\
+\Rightarrow \ & M^R \text{ has a computation } (\bar{p}^R) qp \text{ on } (v^R) a
+& \text{\cref{crl.computation_alternative}} \\
+\Rightarrow \ & M^R \text{ has a computation } \bar{q}^R \text{ on } w^R
+& \text{\cref{def.reverse_string}} \\
+\end{align*}
+\end{proof}
+
+A consequence of the above lemma and \cref{lma.first_last_reverse} is the
+following corollary:
+
+\begin{corollary} \label{crl.reverse_arrow_computation}
+If $p \xrightarrow{w}_M q$, then $q \xrightarrow{w^R}_{M^R} p$ for an NFA $M$,
+$p, q \in Q$ and $w \in \Sigma^{\ast}$.
+\end{corollary}
+
+And a further consequence of this is the next corollary:
+
+\begin{corollary} \label{crl.reverse_accepting_computation}
+If an NFA $M$ has an accepting computation $\bar{q} \in Q^{\ast}$ on
+$w \in \Sigma^{\ast}$, then $M^R$ has an accepting computation $\bar{q}^R$ on $w^R$.
+\end{corollary}
+
+\begin{lemma} \label{lma.computation_split}
+If an NFA $M$ has a computation $\bar{q}_u p \bar{q}_v \in Q^{\ast}$ on
+$uv \in \Sigma^{\ast}$ where $\abs{u} = \abs{\bar{q}_u}$ and $p \in Q$, then $M$
+has a computation $\bar{q}_u p$ on $u$ and a computation $\bar{q}_u p$ on $v$.
+\end{lemma}
+
+\begin{proof}
+First, we prove the second part of the lemma by induction on $u$:
+\begin{align*}
+& \text{Case } u = \epsilon \text{:} \\
+\Rightarrow \ & \bar{q}_u = \epsilon
+& \text{\cref{def.string_length} since } \abs{u} = \abs{\bar{q}_u} \\
+\Rightarrow \ & uv = v \text{ and } \bar{q}_u p \bar{q}_v = p \bar{q}_v
+& \text{\cref{def.string_concatenation}} \\
+\Rightarrow \ & M \text{ has a computation } p \bar{q}_v \text{ on } v
+& \text{Since } \bar{q}_u p \bar{q}_v \text{ is a computation on } uv \\
+\\
+& \text{Case } u = a \text{ where } a \in \Sigma \text{:} \\
+\Rightarrow \ & \bar{q}_u = q \text{ where } q \in Q
+& \text{\cref{def.string_length} since } \abs{u} = \abs{\bar{q}_u} \\
+\Rightarrow \ & uv = av \text{ and } \bar{q}_u p \bar{q}_v = qp \bar{q}_v
+& \text{\cref{def.string_concatenation}} \\
+\Rightarrow \ & (q, a, p) \in \delta \text{ and }
+p \bar{q}_v \text{ is a computation on } v
+& \text{\cref{def.computation}} \\
+& & \text{since } qp \bar{q}_v \text{ is a computation on } av \\
+\\
+& \text{Case } u = abw \text{ where } a, b \in \Sigma \text{ and } w \in
+\Sigma^{\ast} \text{:} \\
+\Rightarrow \ & \bar{q}_u = p'q \bar{p} \text{ where } p'q \in Q \in Q \\
+& \text{and } \abs{bw} = \abs{q \bar{p}}
+& \text{\cref{def.string_length} since } \abs{u} = \abs{\bar{q}_u} \\
+\Rightarrow \ & uv = abwv \text{ and }
+\bar{q}_u p \bar{q}_v = p'q \bar{p} p \bar{q}_v
+& \text{\cref{def.string_concatenation}} \\
+\Rightarrow \ & (p', a, q) \in \delta \text{ and }
+q \bar{p} p \bar{q}_v \text{ is a computation on } bwv
+& \text{\cref{def.computation}} \\
+& & \text{since } p'q \bar{p} p \bar{q}_v \text{ is a computation on } abwv \\
+\Rightarrow \ & p \bar{q}_v \text{ is a computation on } v
+& \text{Inductive hypothesis}
+\end{align*}
+Then the second part is analogous by using the same proof on the reverse
+computation, as per \cref{lma.reverse_computation}, since
+$\abs{v} = \abs{\bar{q}_v}$ due to \cref{lma.computation_length} and
+\cref{lma.string_concatenation_length}.
+\end{proof}
+
+\begin{replemma}{lma.of_reverse_is_reverse_of}
+The language of the reverse of an NFA $M$ is equal to the reverse of the language
+of $M$. Formally, $L(M^R) = (L(M))^R$.
+\end{replemma}
+
+\begin{proof}
+We prove the equality by double inclusion:
+\begin{align*}
+& \text{First, we show that } L(M^R) \subseteq (L(M))^R \text{:} \\
+& \text{Suppose that } w \in L(M^R) \\
+\Rightarrow \ & M^R \text{ has an accepting computation on } w
+& \text{\cref{def.NFA_language}} \\
+\Rightarrow \ & (M^R)^R \text{ has an accepting computation on } w^R
+& \text{\cref{crl.reverse_accepting_computation}} \\
+\Rightarrow \ & M \text{ has an accepting computation on } w^R
+& \text{\cref{lma.reverse_reverse_NFA}} \\
+\Rightarrow \ & w^R \in L(M)
+& \text{\cref{def.NFA_language}} \\
+\Rightarrow \ & (w^R)^R \in (L(M))^R
+& \text{\cref{def.reverse_language}} \\
+\Rightarrow \ & w \in (L(M))^R
+& \text{\cref{lma.reverse_reverse_string}} \\
+& \text{Therefore } L(M^R) \subseteq (L(M))^R \\
+\\
+& \text{Then we show that } (L(M))^R \subseteq L(M^R) \text{:} \\
+& L((M^R)^R) \subseteq (L(M^R))^R
+& \text{From the first part} \\
+\Rightarrow \ & L(M) \subseteq (L(M^R))^R
+& \text{\cref{lma.reverse_reverse_NFA}} \\
+\Rightarrow \ & (L(M))^R \subseteq ((L(M^R))^R)^R
+& \text{\cref{lma.reverse_language_subset}} \\
+\Rightarrow \ & (L(M))^R \subseteq (L(M^R)
+& \text{\cref{lma.reverse_reverse_language}}
+\end{align*}
+\end{proof}
+
+\begin{replemma}{lma.reverse_reachable}
+The set of reachable sets of the reverse of an NFA $M$ is equal to the set of
+co-reachable sets of $M$ and vice versa. Formally,
+$\mathcal{R}_{M^R} = \mathcal{C}_M$ and $\mathcal{C}_{M^R} = \mathcal{R}_M$.
+\end{replemma}
+
+\begin{proof}
+First, we prove the first part.
+\begin{align*}
+& \mathcal{R}_{M} \\
+= \ & \setc{\setc{q \in Q}{\exists p \in I \cdot p \xrightarrow{w}_M q}}
+{w \in \Sigma^{\ast}}
+& \text{\cref{def.reachable_sets}} \\
+= \ & \setc{\setc{q \in Q}{\exists p \in I \cdot q \xrightarrow{w}_{M^R} p}}
+{w \in \Sigma^{\ast}} 
+& \text{\cref{crl.reverse_arrow_computation}} \\
+= \ & \mathcal{C}_{M^R}
+& \text{\cref{def.reachable_sets} and \cref{def.reverse_NFA}}
+\end{align*}
+The proof of the second part is analogous, by starting with $M^R$
+and applying \cref{lma.reverse_reverse_NFA} at the end.
+\end{proof}
+
+\begin{replemma}{lma.UFA_characterization}
+An NFA $M$ is a UFA if and only if $\abs{S \cap T} \leq 1$ for every reachable
+set $S$ and every co-reachable set $T$.
+\end{replemma}
+
+\begin{proof}
+The proof here is similar to the one in \cite{UFA_UB} but a bit more formal. Note
+that the proof is essentially the same in both directions but is intentionally
+written separately for clarity.
+
+(If) For a contradiction, suppose that $\abs{S \cap T} \leq 1$ for every
+$S \in \mathcal{R}_M$ and every $T \in \mathcal{T}_M$ and that there is a string
+$w$ with two distinct accepting computations $\bar{p}, \bar{q} \in Q^{\ast}$.
+From $\bar{p} \neq \bar{q}$ and \cref{lma.computation_length}, it follows that
+$\bar{p} = \bar{p}_u p \bar{p}_v$ and $\bar{q} = \bar{q}_u q \bar{q}_v$ where
+$w = uv$, $\abs{\bar{p}}_u = \abs{\bar{q}}_u = \abs{u} + 1$,
+$\abs{\bar{p}}_v = \abs{\bar{q}}_v = \abs{v} + 1$, $p, q \in Q$ and
+$p \neq q$. From \cref{lma.computation_split}, it follows that $\bar{p}_u p$
+and $\bar{q}_u q$ are both computations on $u$ and $q \bar{p}_v$ and $q \bar{q}_v$
+are both computations on $v$. Finally, note that $\bar{p}_u p \bar{p}_v$ and
+$\bar{q}_u q \bar{q}_v$ are both accepting, and thus the first states of
+$\bar{p}_u p$ and $\bar{q}_u q$ are both initial and that the last states of
+$p \bar{p}_v$ and $q \bar{q}_v$ are both final. Therefore, $p, q \in S \cap T$
+where $S$ is $u$'s reachable set and $T$ is $v$'s reachable set, and thus
+$\abs{S \cap T} \geq 2$, which is a contradiction.
+
+(Only if) For a contradiction, suppose that $M$ is unambiguous and there exist
+a pair of sets $S \in \mathcal{R}_M$ and $T \in \mathcal{C}$ such that
+$\abs{S \cap T} \geq 2$. Then there exists a pair of distinct states
+$p, q \in S \cap T$.
+Since $S$ is reachable, let $u \in \Sigma^{\ast}$ be the string that makes
+it reachable, from \cref{def.reachable_sets}. Similarly, let $v \in \Sigma^{\ast}$
+be the string that makes $C$ co-reachable. Now as per \cref{def.reachable_sets},
+let $\bar{p}_u p, \bar{q}_u q, p \bar{q}_v, q \bar{q}_v \in Q^{\ast}$ be
+computations on $u$ and $v$ that reach/co-reach $p$ and $q$, respectively. From
+\cref{lma.computation_join}, it follows that $\bar{p}_u p \bar{p}_v$
+and $\bar{q}_u q \bar{q}_v$ are both computations on $uv$. They are also distinct,
+since $p \neq q$ and $\abs{\bar{p}} = \abs{\bar{q}} = \abs{u}$ by
+\cref{lma.computation_length}. Finally, note that the first states of $\bar{p}_u p$
+and $\bar{q}_u q$ are both initial and that the last states of $p \bar{p}_v$ and
+$q \bar{q}_v$ are both final, and thus $\bar{p}_u p \bar{p}_v$ and
+$\bar{q}_u p \bar{p}_v$ are both accepting. Therefore, $M$ has two distinct
+accepting computations on $w$, which is a contradiction.
+\end{proof}
+
+\begin{lemma} \label{lma.reachable_alternative}
+Let us write $S^w_M$ for the set reachable by string
+$w \in \Sigma^{\ast}$ in an NFA $M$. Then
+$S^{wa}_M = \setc{q \in Q}{\exists q' \in S^w_M \cdot (q', a, q) \in \delta)}$.
+\end{lemma}
+
+\begin{proof}
+\begin{align*}
+& S^{wa}_M \\
+= \ & \setc{q \in Q}{\exists p \in I \cdot p \xrightarrow{wa}_M q}
+& \text{\cref{def.reachable_sets}} \\
+= \ & \setc{q \in Q}{\exists p \in I \cdot \exists q' \in Q \cdot
+(p \xrightarrow{w}_M q' \wedge q' \xrightarrow{a}_M q \in \delta)}
+& \text{\cref{lma.computation_join} and \cref{lma.computation_split}} \\
+= \ & \setc{q \in Q}{\exists p \in I \cdot \exists q' \in Q \cdot
+(p \xrightarrow{w}_M q' \wedge (q', a, q) \in \delta)}
+& \text{\cref{def.computation}} \\
+= \ & \setc{q \in Q}{\exists q' \in Q \cdot ((\exists p \in I \cdot
+p \xrightarrow{w}_M q') \wedge (q', a, q) \in \delta)} \\
+= \ & \setc{q \in Q}{\exists q' \in S^w_M \cdot (q', a, q) \in \delta)}
+& \text{\cref{def.reachable_sets}} \\
+\end{align*}
+\end{proof}
+
+\begin{replemma}{lma.DFA_reachable}
+Every reachable set of a DFA $M$ has size exactly $1$.
+\end{replemma}
+
+\begin{proof}
+We prove that $\abs{S^w_M} = 1$ by induction on $w$ in reverse,
+which is valid by \cref{crl.reverse_string_bijection}:
+\begin{align*}
+& \text{Case } w = \epsilon \text{:} \\
+& \abs{S^w_M} \\
+= \ & \abs{\setc{q \in Q}{\exists p \in I \cdot p \xrightarrow{\epsilon}_M q}}
+& \text{\cref{def.reachable_sets}} \\
+= \ & \abs{\setc{q \in Q}{\exists p \in I \cdot p = q}}
+& \text{\cref{def.computation}} \\
+= \ & \abs{I} \\
+= \ & 1 
+& \text{\cref{def.DFA}} \\
+\\
+& \text{Case } w = va \text{ where } a \in \Sigma \text{ and }
+v \in \Sigma^{\ast} \text{:} \\
+& \abs{S^w_M}
+= \abs{\setc{q \in Q}{\exists q' \in S^v_M \cdot (q', a, q) \in \delta)}} 
+& \text{\cref{lma.reachable_alternative}} \\
+& \text{But there is exactly one } q' \in S^v_M \text{ since } \abs{S^v_M} = 1
+& \text{Inductive hypothesis} \\
+& \text{And thus there is exactly one } q \text{ such that } (q', a, q) \in \delta
+& \text{\cref{def.DFA}} \\
+& \text{Therefore } \abs{S^w_M} = 1
+\end{align*}
+\end{proof}
+
+\begin{replemma}{lma.of_complement_is_complement}
+The language of the complement of a DFA $M$ is equal to the complement of the
+language of $M$. Formally, $L(\overline{M}) = \overline{L(M)}$.
+\end{replemma}
+
+\begin{proof}
+First, following \cref{lma.DFA_reachable}, let $q^w_M \in Q$ be the unique state
+reachable by string $w \in \Sigma^{\ast}$ in $M$. Then by
+\cref{def.NFA_language}, $w \in L(M) \leftrightarrow q^w_M \in F$.
+Also, note that $q^w_M = q^w_{\overline{M}}$, since $M$ and $\overline{M}$ have
+the same initial states and transition relations.
+Now we prove the equality by considering each possible element $w \in \Sigma^{\ast}$
+of the two sets:
+\begin{align*}
+& w \in \overline{L(M)} \\
+\Leftrightarrow \ & w \notin L(M)
+& \text{\cref{def.complement_language}} \\
+\Leftrightarrow \ & q^w_M \notin F
+& \text{Shown above} \\
+\Leftrightarrow \ & q^w_M \in Q \setminus F
+& \text{Since } q^w \in Q \\
+\Leftrightarrow \ & q^w_{\overline{M}} \in Q \setminus F
+& \text{Since } q^w_M = q^w_{\overline{M}} \\
+\Leftrightarrow \ & w \in L(\overline{M})
+& \text{Shown above} \\
+& \text{Therefore } L(\overline{M}) = \overline{L(M)}
+\end{align*}
+\end{proof}
+
+\begin{replemma}{lma.subset_construction_reachable_states}
+Given an NFA $M$, the unique state reachable by $w \in \Sigma^{\ast}$ in $2^M$
+is equal to the set reachable by $w$ in $M$.
+\end{replemma}
+
+\begin{proof}
+Notice that the definition of the transition relation of $2^M$ is equivalent to the
+characterization of reachable sets presented in \cref{lma.reachable_alternative}.
+Therefore, following the same proof, we can show $q^w_{2^M} = S^w_M$.
+\end{proof}
+
+Thus, since $q^w_{2^M} = S^w_M \in \mathcal{R}_M$ for all strings
+$w \in \Sigma^{\ast}$, we get the following corollary:
+
+\begin{corollary} \label{crl.subset_construction_transition_is_valid}
+The transition relation, $\delta_{2^M}$, of the subset construction DFA, $2^M$, is
+valid, i.e. $\delta_{2^M} \subseteq \mathcal{R}_M \times \Sigma \times \mathcal{R}_M$.
+\end{corollary}
+
+\begin{replemma}{lma.of_subset_is_identity}
+The language of the subset construction DFA of an NFA $M$ is equal to the
+language of $M$. Formally, $L(2^M) = L(M)$.
+\end{replemma}
+
+\begin{proof}
+We prove the equality by considering each possible element $w \in \Sigma^{\ast}$
+of the two sets:
+\begin{align*}
+& w \in L(M) \\
+\Leftrightarrow \ & M \text{ has an accepting computation on } w
+& \text{\cref{def.NFA_language}} \\
+\Leftrightarrow \ & \exists p \in I \cdot \exists q \in F \cdot
+p \xrightarrow{w}_M q
+& \text{\cref{def.computation}} \\
+\Leftrightarrow \ & \exists q \in F \cdot q \in S^w_M
+& \text{\cref{def.reachable_sets}} \\
+\Leftrightarrow \ & S^w_M \cap F \neq \emptyset \\
+\Leftrightarrow \ & q^w_{2^M} \cap F \neq \emptyset
+& \text{\cref{lma.subset_construction_reachable_states}} \\
+\Leftrightarrow \ & q^w_{2^M} \in \setc{S}{S \in \mathcal{R}_M \wedge S \cap F \neq \emptyset} \\
+\Leftrightarrow \ & q^w_{2^M} \in F_{2^M}
+& \text{\cref{def.subset_construction}} \\
+& & (\Leftarrow) \text{ Since } 2^M \text{ is a DFA} \\
+\Leftrightarrow \ & \exists q \in F_{2^M} \cdot \set{I} \xrightarrow{w}_{2^M} q
+& \text{\cref{def.computation}} \\
+\Leftrightarrow \ & w \in L(2^M)
+& \text{\cref{def.NFA_language}} \\
+& \text{Therefore } L(\overline{M}) = \overline{L(M)}
+\end{align*}
+\end{proof}
+
+\chapter{Code listing}
+\label{app.code}
+
+\begin{lstlisting}
+#include <iostream>
+#include <algorithm>
+#include <vector>
+#include <math.h>
+#include <assert.h>
+
+const bool USE_PRODUCT = false;
+
+std::vector<int> generate_interesting_interesting_sets(int n)
+{
+    std::vector<int> interesting_sets;
+    int curr = 0;
+    int last = 1 << n;
+    while (curr < last)
+    {
+        if (curr & (curr - 1))
+            interesting_sets.push_back(curr);
+        ++curr;
+    }
+    return interesting_sets;
+}
+
+bool test_set(const std::vector<int>& R, int T)
+{
+    for (int S : R)
+    {
+        int inter = S & T;
+        if (inter & (inter - 1)) return false;
+    }
+    return true;
+}
+
+std::vector<int> interesting_sets;
+std::vector<int> R;
+std::vector<int> C;
+long long ans;
+int n;
+
+void rec_solve(int pos)
+{
+    C.resize(0);
+    int ptr = 0;
+    for (int T : interesting_sets)
+    {
+        while (ptr < R.size() && R[ptr] < T) ++ptr;
+        if (ptr < R.size() && R[ptr] == T) continue;
+        if (test_set(R, T)) C.push_back(T);
+    }
+
+    int max_R_size = R.size() + interesting_sets.size() - pos + n + 1;
+    int max_C_size = C.size() + n + 1;
+
+    long long max_ans;
+    if constexpr (USE_PRODUCT) max_ans = (long long) max_R_size * max_C_size;
+    else max_ans = std::min(max_R_size, max_C_size);
+
+    if (max_ans <= ans) return;
+
+    ptr = 0;
+    int ptr2 = 0;
+    int extra_R_size = 0;
+    for (int i = 0; i < interesting_sets.size(); ++i)
+    {
+        int S = interesting_sets[i];
+        while (ptr < R.size() && R[ptr] < S) ++ptr;
+        if (ptr < R.size() && R[ptr] == S) continue;
+        while (ptr2 < C.size() && C[ptr2] < S) ++ptr2;
+        if (ptr2 < C.size() && C[ptr2] == S) continue;
+        if (test_set(C, S))
+        {
+            if (i < pos) return;
+            ++extra_R_size;
+        }
+    }
+
+    int R_size = R.size() + extra_R_size + n + 1;
+    int C_size = C.size() + n + 1;
+
+    long long curr_ans;
+    if constexpr (USE_PRODUCT) curr_ans = (long long) R_size * C_size;
+    else curr_ans = std::min(R_size, C_size);
+    if (curr_ans > ans)
+    {
+        ans = curr_ans;
+        std::cerr << "|R|: " << R_size << " (" << extra_R_size << ")" << " |C|: " << C_size << " : ";
+        if constexpr (USE_PRODUCT) std::cerr << sqrt(ans);
+        else std::cerr << ans;
+        std::cerr << std::endl;
+    }
+
+    if (pos < interesting_sets.size())
+    {
+        int curr_set = interesting_sets[pos];
+        bool fits = test_set(C, curr_set);
+        R.push_back(curr_set);
+        rec_solve(pos + 1);
+        R.pop_back();
+        if (!fits) rec_solve(pos + 1);
+    }
+}
+
+double usc_compliment(int curr_n)
+{
+    n = curr_n;
+    ans = -1;
+    interesting_sets = generate_interesting_interesting_sets(n);
+    std::cerr << "interesting_sets size: " << interesting_sets.size() << std::endl;
+    R = {};
+    rec_solve(0);
+    if constexpr (USE_PRODUCT) return sqrt(ans);
+    else return ans;
+}
+
+int main()
+{
+    int n;
+    std::cin >> n;
+    double ans = usc_compliment(n);
+    std::cout << n << " : " << ans << std::endl;
+    return 0;
+}    
+\end{lstlisting}
+
+\end{appendices}
+
+\end{document}
